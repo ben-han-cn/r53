@@ -1,0 +1,11 @@
+[package]
+name = "r53"
+version = "0.1.0"
+authors = ["hanfeng <hanfeng@zdns.cn>"]
+
+[dependencies]
+
+
+[[test]]
+name = "test"
+path = "test/mod.rs"
