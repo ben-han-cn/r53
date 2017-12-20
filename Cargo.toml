@@ -1,11 +1,11 @@
 [package]
 name = "r53"
 version = "0.1.0"
-authors = ["hanfeng <hanfeng@zdns.cn>"]
+authors = ["hanfeng <ben.han.cn@gmail.com>"]
 
 [dependencies]
+error-chain = "0.11.0"
 
-
-[[test]]
-name = "test"
-path = "test/mod.rs"
+[lib]
+name = "r53"
+path = "src/lib.rs"
