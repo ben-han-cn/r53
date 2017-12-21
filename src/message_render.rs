@@ -19,8 +19,6 @@ struct NameComparator<'a> {
 
 impl<'a> NameComparator<'a> {
     pub fn compare(&self, item: &OffSetItem, name_buffer: &mut InputBuffer) -> bool {
-        print!("+++ name-hash:{}, item-hash:{}, name-len:{}, item-len:{}\n", self.hash, item.hash,
-               name_buffer.len(), item.len);
         if item.hash != self.hash || item.len != (name_buffer.len() as u8) {
             return false;
         }
@@ -30,8 +28,6 @@ impl<'a> NameComparator<'a> {
             let label = self.next_label(item_pos);
             let mut name_label_len = name_buffer.read_u8();
             if name_label_len != label.0 {
-                print!("xxxx label len isn't equl, name-ll:{}, ll-in-buf:{}\n", name_label_len,
-                       label.0);
                 return false;
             } else if name_label_len == 0 {
                 break;
@@ -43,12 +39,10 @@ impl<'a> NameComparator<'a> {
                 let ch2 = name_buffer.read_u8();
                 if self.case_sensitive {
                     if ch1 != ch2 {
-                        print!("46 data isn't equl, {}:{}\n", ch1, ch2);
                         return false;
                     }
                 } else {
                     if MAP_TO_LOWER[ch1 as usize] != MAP_TO_LOWER[ch2 as usize] {
-                        print!("51 data isn't equl, {}:{}\n", ch1, ch2);
                         return false;
                     }
                 }
@@ -76,7 +70,7 @@ const RESERVED_ITEMS: usize = 16;
 const NO_OFFSET: u16 = 65535;
 const MAX_MESSAGE_LEN: u32 = 512;
 
-struct MessageRender {
+pub struct MessageRender {
     buffer:        OutputBuffer,
     truncated:     bool,
     len_limit:  u32,
@@ -131,7 +125,6 @@ impl MessageRender  {
 
     pub fn add_offset(&mut self, hash: u32, offset: u16, len: u8) {
         let bucket_id = hash % (BUCKETS as u32);
-        print!("---> write hash:{}, offset:{}, len:{}\n", hash, offset, len);
         self.table[bucket_id as usize].push(OffSetItem{
             hash: hash,
             pos: offset,
@@ -149,7 +142,6 @@ impl MessageRender  {
     }
 
     pub fn write_name(&mut self, name: &Name, compress: bool) {
-        print!("---> write name is {}\n", name.to_string());
         let label_count = name.label_count();
         let mut label_uncompressed = 0;
         let mut offset = NO_OFFSET;
@@ -164,14 +156,10 @@ impl MessageRender  {
                 break;
             }
 
-            print!("xxxxx---> name {} hash is {}\n", parent.to_string(),
-            parent.hash(self.case_sensitive));
-
             self.label_hashes[label_uncompressed] = parent.hash(self.case_sensitive);
             if compress {
                 offset = self.find_offset(&mut InputBuffer::new(parent.raw_data()),
                                           self.label_hashes[label_uncompressed]);
-                print!("---> offset is {}\n", offset);
                 if offset != NO_OFFSET {
                     break
                 }
