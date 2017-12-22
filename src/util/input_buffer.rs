@@ -1,7 +1,7 @@
 pub struct InputBuffer<'a> {
-    pos:     usize,
+    pos: usize,
     datalen: usize,
-    data:    &'a [u8], 
+    data: &'a [u8],
 }
 
 impl<'a> InputBuffer<'a> {
@@ -27,7 +27,7 @@ impl<'a> InputBuffer<'a> {
         self.pos
     }
 
-    pub fn set_postion(&mut self, p: usize){
+    pub fn set_postion(&mut self, p: usize) {
         if p > self.datalen {
             panic!("out of range");
         }
@@ -74,7 +74,7 @@ impl<'a> InputBuffer<'a> {
         }
 
         let pos = self.pos;
-        let data = &self.data[pos..(pos+len)];
+        let data = &self.data[pos..(pos + len)];
         self.pos = pos + len;
         data
     }

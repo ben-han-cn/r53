@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Rcode {
     NoError,
     FormErr,
@@ -36,7 +36,7 @@ impl Rcode {
         }
     }
 
-    pub fn to_u8(&self) -> u8 { 
+    pub fn to_u8(&self) -> u8 {
         match *self {
             Rcode::NoError => 0,
             Rcode::FormErr => 1,
@@ -44,11 +44,11 @@ impl Rcode {
             Rcode::NXDomian => 3,
             Rcode::NotImp => 4,
             Rcode::Refused => 5,
-            Rcode::YXDomain => 6, 
-            Rcode::YXRRset => 7, 
-            Rcode::NXRRset => 8, 
-            Rcode::NotAuth => 9, 
-            Rcode::NotZone => 10, 
+            Rcode::YXDomain => 6,
+            Rcode::YXRRset => 7,
+            Rcode::NXRRset => 8,
+            Rcode::NotAuth => 9,
+            Rcode::NotZone => 10,
             Rcode::Reserved => 11,
         }
     }
@@ -61,11 +61,11 @@ impl Rcode {
             Rcode::NXDomian => "NXDOMAIN",
             Rcode::NotImp => "NOTIMP",
             Rcode::Refused => "REFUSED",
-            Rcode::YXDomain => "YXDOMAIN", 
-            Rcode::YXRRset => "YXRRSET", 
-            Rcode::NXRRset => "NXRRSET", 
-            Rcode::NotAuth => "NOTAUTH", 
-            Rcode::NotZone => "NOTZONE", 
+            Rcode::YXDomain => "YXDOMAIN",
+            Rcode::YXRRset => "YXRRSET",
+            Rcode::NXRRset => "NXRRSET",
+            Rcode::NotAuth => "NOTAUTH",
+            Rcode::NotZone => "NOTZONE",
             Rcode::Reserved => "RESERVED",
         }
     }

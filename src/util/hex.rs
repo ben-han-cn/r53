@@ -9,11 +9,11 @@ pub fn from_hex(hex_str: &str) -> Option<Vec<u8>> {
             b'A'...b'F' => buf |= byte - b'A' + 10,
             b'a'...b'f' => buf |= byte - b'a' + 10,
             b'0'...b'9' => buf |= byte - b'0',
-            b' '|b'\r'|b'\n'|b'\t' => {
+            b' ' | b'\r' | b'\n' | b'\t' => {
                 buf >>= 4;
-                continue
-            },
-            _ => return None
+                continue;
+            }
+            _ => return None,
         }
         modulus += 1;
         if modulus == 2 {
@@ -24,7 +24,7 @@ pub fn from_hex(hex_str: &str) -> Option<Vec<u8>> {
 
     match modulus {
         0 => Some(b.into_iter().collect()),
-        _ => None
+        _ => None,
     }
 }
 
@@ -43,4 +43,3 @@ mod test {
         assert!(from_hex("01a31g").is_none());
     }
 }
- 

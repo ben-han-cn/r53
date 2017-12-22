@@ -1,12 +1,10 @@
 pub struct OutputBuffer {
-	data: Vec<u8>,
+    data: Vec<u8>,
 }
 
 impl OutputBuffer {
     pub fn new(len: usize) -> Self {
-        OutputBuffer {
-            data: Vec::with_capacity(len),
-        }
+        OutputBuffer { data: Vec::with_capacity(len) }
     }
 
     pub fn len(&self) -> usize {
@@ -17,7 +15,7 @@ impl OutputBuffer {
         self.data.capacity()
     }
 
-    pub fn data(&self) -> &[u8]{
+    pub fn data(&self) -> &[u8] {
         self.data.as_slice()
     }
 
@@ -30,8 +28,8 @@ impl OutputBuffer {
     }
 
     pub fn skip(&mut self, len: usize) {
-        let l = self.len() + len;
-        self.data.reserve(l);
+        let new_cap = self.len() + len;
+        self.data.reserve(new_cap);
         self.data.append(&mut vec![0; len]);
     }
 
@@ -71,14 +69,14 @@ impl OutputBuffer {
         }
 
         self.data[pos] = ((d & 0xff00) >> 8) as u8;
-        self.data[pos+1] = (d & 0x00ff) as u8;
+        self.data[pos + 1] = (d & 0x00ff) as u8;
     }
 
     pub fn write_u32(&mut self, d: u32) {
-		self.data.push(((d & 0xff000000)>>24) as u8);
-		self.data.push(((d & 0x00ff0000)>>16) as u8);
-		self.data.push(((d & 0x0000ff00)>>8) as u8);
-		self.data.push((d & 0x000000ff) as u8);
+        self.data.push(((d & 0xff000000) >> 24) as u8);
+        self.data.push(((d & 0x00ff0000) >> 16) as u8);
+        self.data.push(((d & 0x0000ff00) >> 8) as u8);
+        self.data.push((d & 0x000000ff) as u8);
     }
 
     pub fn write_data(&mut self, data: &[u8]) {

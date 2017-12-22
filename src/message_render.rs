@@ -5,14 +5,14 @@ const MAX_COMPRESS_POINTER: usize = 0x3fff;
 
 #[derive(Clone, Copy)]
 struct OffSetItem {
-	hash: u32,
-	pos: u16,
+    hash: u32,
+    pos: u16,
     len: u8,
 }
 
 struct NameComparator<'a> {
-    buffer:        &'a OutputBuffer,
-    hash:          u32,
+    buffer: &'a OutputBuffer,
+    hash: u32,
     case_sensitive: bool,
 }
 
@@ -71,16 +71,16 @@ const NO_OFFSET: u16 = 65535;
 const MAX_MESSAGE_LEN: u32 = 512;
 
 pub struct MessageRender {
-    buffer:        OutputBuffer,
-    truncated:     bool,
-    len_limit:  u32,
+    buffer: OutputBuffer,
+    truncated: bool,
+    len_limit: u32,
     case_sensitive: bool,
-    table:         Vec<Vec<OffSetItem>>,
-    label_hashes:  [u32; MAX_LABEL_COUNT as usize],
+    table: Vec<Vec<OffSetItem>>,
+    label_hashes: [u32; MAX_LABEL_COUNT as usize],
 }
 
 
-impl MessageRender  {
+impl MessageRender {
     pub fn new() -> Self {
         let mut render = MessageRender {
             buffer: OutputBuffer::new(MAX_MESSAGE_LEN as usize),
@@ -125,7 +125,7 @@ impl MessageRender  {
 
     pub fn add_offset(&mut self, hash: u32, offset: u16, len: u8) {
         let bucket_id = hash % (BUCKETS as u32);
-        self.table[bucket_id as usize].push(OffSetItem{
+        self.table[bucket_id as usize].push(OffSetItem {
             hash: hash,
             pos: offset,
             len: len,
@@ -158,10 +158,12 @@ impl MessageRender  {
 
             self.label_hashes[label_uncompressed] = parent.hash(self.case_sensitive);
             if compress {
-                offset = self.find_offset(&mut InputBuffer::new(parent.raw_data()),
-                                          self.label_hashes[label_uncompressed]);
+                offset = self.find_offset(
+                    &mut InputBuffer::new(parent.raw_data()),
+                    self.label_hashes[label_uncompressed],
+                );
                 if offset != NO_OFFSET {
-                    break
+                    break;
                 }
             }
             label_uncompressed += 1;
@@ -184,11 +186,11 @@ impl MessageRender  {
         for i in 0..label_uncompressed {
             let label_len = self.buffer.at(name_pos);
             if label_len == 0 {
-                break
+                break;
             }
 
             if name_pos > MAX_COMPRESS_POINTER {
-                break
+                break;
             }
 
             let hash = self.label_hashes[i];
@@ -253,25 +255,28 @@ mod test {
         let a_example_org = Name::new("a.example.org", true).unwrap();
         let mut render = MessageRender::new();
 
-        let raw =
-            from_hex("0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700").unwrap();
+        let raw = from_hex(
+            "0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700",
+        ).unwrap();
         render.write_name(&a_example_com, true);
         render.write_name(&b_example_com, true);
         render.write_name(&a_example_org, true);
         assert_eq!(raw.as_slice(), render.data());
 
-        let raw =
-            from_hex("0161076578616d706c6503636f6d00ffff0162076578616d706c6503636f6d00").unwrap();
+        let raw = from_hex(
+            "0161076578616d706c6503636f6d00ffff0162076578616d706c6503636f6d00",
+        ).unwrap();
         render.clear();
-        let offset: usize = 0x3fff; 
+        let offset: usize = 0x3fff;
         render.skip(offset);
         render.write_name(&a_example_com, true);
         render.write_name(&a_example_com, true);
         render.write_name(&b_example_com, true);
         assert_eq!(raw.as_slice(), &render.data()[offset..]);
 
-        let raw =
-            from_hex("0161076578616d706c6503636f6d000162076578616d706c6503636f6d00c00f").unwrap();
+        let raw = from_hex(
+            "0161076578616d706c6503636f6d000162076578616d706c6503636f6d00c00f",
+        ).unwrap();
         render.clear();
         render.write_name(&a_example_com, true);
         render.write_name(&b_example_com, false);
@@ -285,8 +290,9 @@ mod test {
         render.write_name(&b_example_com, true);
         assert_eq!(raw.as_slice(), render.data());
 
-        let raw =
-            from_hex("0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700").unwrap();
+        let raw = from_hex(
+            "0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700",
+        ).unwrap();
         render.clear();
         let b_example_com_cs = Name::new("b.exAmple.CoM", false).unwrap();
         render.write_name(&a_example_com, true);

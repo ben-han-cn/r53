@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum HeaderFlag {
     QueryRespone,
     AuthAnswer,
@@ -55,14 +55,16 @@ pub fn is_flag_set(header_flags: u16, flag: HeaderFlag) -> bool {
     (header_flags & flag.flag_mask()) != 0
 }
 
-pub fn setted_flags(header_flags: u16) -> Vec<HeaderFlag>{
-    let mut flags = vec![ HeaderFlag::QueryRespone,
-    HeaderFlag::AuthAnswer,
-    HeaderFlag::Truncation,
-    HeaderFlag::RecursionDesired, 
-    HeaderFlag::RecursionAvailable,
-    HeaderFlag::AuthenticData,
-    HeaderFlag::CheckDisable];
+pub fn setted_flags(header_flags: u16) -> Vec<HeaderFlag> {
+    let mut flags = vec![
+        HeaderFlag::QueryRespone,
+        HeaderFlag::AuthAnswer,
+        HeaderFlag::Truncation,
+        HeaderFlag::RecursionDesired,
+        HeaderFlag::RecursionAvailable,
+        HeaderFlag::AuthenticData,
+        HeaderFlag::CheckDisable,
+    ];
     flags.retain(|&flag| is_flag_set(header_flags, flag));
     flags
 }

@@ -2,19 +2,19 @@ use opcode::Opcode;
 use rcode::Rcode;
 use header_flag::{HeaderFlag, set_flag, clear_flag, is_flag_set, setted_flags};
 use util::{InputBuffer, OutputBuffer};
-use message_render::{MessageRender};
+use message_render::MessageRender;
 use std::fmt::Write;
 
 const HEADERFLAG_MASK: u16 = 0x87b0;
-const OPCODE_MASK:     u16 = 0x7800;
-const OPCODE_SHIFT:    u16 = 11;
-const RCODE_MASK:      u16 = 0x000f;
+const OPCODE_MASK: u16 = 0x7800;
+const OPCODE_SHIFT: u16 = 11;
+const RCODE_MASK: u16 = 0x000f;
 
 pub struct Header {
-	pub id:     u16,
-    flag:   u16,
+    pub id: u16,
+    flag: u16,
     pub opcode: Opcode,
-	pub rcode:   Rcode,
+    pub rcode: Rcode,
     pub qd_count: u16,
     pub an_count: u16,
     pub ns_count: u16,
@@ -22,7 +22,7 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn from_wire(buf :&mut InputBuffer) -> Self {
+    pub fn from_wire(buf: &mut InputBuffer) -> Self {
         if buf.len() < 12 {
             panic!("too short");
         }
@@ -50,7 +50,7 @@ impl Header {
         self.ar_count = 0;
     }
 
-    pub fn setted_flags(&self) -> Vec<HeaderFlag>{
+    pub fn setted_flags(&self) -> Vec<HeaderFlag> {
         setted_flags(self.flag)
     }
 
@@ -62,7 +62,7 @@ impl Header {
         }
     }
 
-    pub fn rend(&self, render: &mut MessageRender) { 
+    pub fn rend(&self, render: &mut MessageRender) {
         render.write_u16(self.id);
         render.write_u16(self.header_flag());
         render.write_u16(self.qd_count);
@@ -89,10 +89,13 @@ impl Header {
 
     pub fn to_string(&self) -> String {
         let mut header_str = String::new();
-        write!(&mut header_str, ";; ->>HEADER<<- opcode: {}, status: {}, id: {}\n",
-               self.opcode.to_string(),
-               self.rcode.to_string(),
-               self.id).unwrap();
+        write!(
+            &mut header_str,
+            ";; ->>HEADER<<- opcode: {}, status: {}, id: {}\n",
+            self.opcode.to_string(),
+            self.rcode.to_string(),
+            self.id
+        ).unwrap();
         write!(&mut header_str, ";; flags: ").unwrap();
         for flag in self.setted_flags() {
             write!(&mut header_str, " {}", flag.to_string()).unwrap();
@@ -117,8 +120,14 @@ mod test {
         let raw = from_hex("04b085000001000200010002").unwrap();
         let mut buf = InputBuffer::new(raw.as_slice());
         let header = Header::from_wire(&mut buf);
-        assert_eq!(header.setted_flags(), vec![HeaderFlag::QueryRespone, HeaderFlag::AuthAnswer,
-        HeaderFlag::RecursionDesired]);
+        assert_eq!(
+            header.setted_flags(),
+            vec![
+                HeaderFlag::QueryRespone,
+                HeaderFlag::AuthAnswer,
+                HeaderFlag::RecursionDesired,
+            ]
+        );
         assert_eq!(header.id, 1200);
         assert_eq!(header.qd_count, 1);
         assert_eq!(header.an_count, 2);

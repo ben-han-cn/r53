@@ -1,9 +1,9 @@
 use std::fmt;
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Opcode {
-    Query,      
-    IQuery,     
+    Query,
+    IQuery,
     Status,
     Notify,
     Update,
@@ -24,22 +24,22 @@ impl Opcode {
 
     pub fn to_u8(&self) -> u8 {
         match *self {
-            Opcode::Query=> 0,
-            Opcode::IQuery=> 1,
-            Opcode::Status=> 2,
-            Opcode::Notify=> 4,
-            Opcode::Update=> 5,
-            Opcode::Reserved=> 6,
+            Opcode::Query => 0,
+            Opcode::IQuery => 1,
+            Opcode::Status => 2,
+            Opcode::Notify => 4,
+            Opcode::Update => 5,
+            Opcode::Reserved => 6,
         }
     }
 
     fn to_string(&self) -> &'static str {
         match *self {
-            Opcode::Query=> "QUERY",
-            Opcode::IQuery=> "IQUERY",
-            Opcode::Status=> "STATUS",
-            Opcode::Notify=> "NOTIFY",
-            Opcode::Update=> "UPDATE",
+            Opcode::Query => "QUERY",
+            Opcode::IQuery => "IQUERY",
+            Opcode::Status => "STATUS",
+            Opcode::Notify => "NOTIFY",
+            Opcode::Update => "UPDATE",
             Opcode::Reserved => "RESERVED",
         }
     }
