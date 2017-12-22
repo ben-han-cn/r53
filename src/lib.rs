@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate error_chain;
-
 pub mod rcode;
 pub mod opcode;
 pub mod name;

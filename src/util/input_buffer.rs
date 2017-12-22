@@ -1,3 +1,5 @@
+use super::error::Error;
+
 pub struct InputBuffer<'a> {
     pos: usize,
     datalen: usize,
@@ -34,30 +36,30 @@ impl<'a> InputBuffer<'a> {
         self.pos = p;
     }
 
-    pub fn read_u8(&mut self) -> u8 {
+    pub fn read_u8(&mut self) -> Result<u8, Error> {
         if self.pos + 1 > self.datalen {
-            panic!("read u8 out of range");
+            return Err(Error::ReadOutOfRange);
         }
 
         let num = self.data[self.pos];
         self.pos += 1;
-        num
+        Ok(num)
     }
 
-    pub fn read_u16(&mut self) -> u16 {
+    pub fn read_u16(&mut self) -> Result<u16, Error> {
         if self.pos + 2 > self.datalen {
-            panic!("read u16 out of range");
+            return Err(Error::ReadOutOfRange);
         }
 
         let mut num = (self.data[self.pos] as u16) << 8;
         num |= self.data[self.pos + 1] as u16;
         self.pos += 2;
-        num
+        Ok(num)
     }
 
-    pub fn read_u32(&mut self) -> u32 {
+    pub fn read_u32(&mut self) -> Result<u32, Error> {
         if self.pos + 4 > self.datalen {
-            panic!("read u32 out of range");
+            return Err(Error::ReadOutOfRange);
         }
 
         let mut num = (self.data[self.pos] as u32) << 24;
@@ -65,17 +67,17 @@ impl<'a> InputBuffer<'a> {
         num |= (self.data[self.pos + 2] as u32) << 8;
         num |= self.data[self.pos + 3] as u32;
         self.pos += 4;
-        num
+        Ok(num)
     }
 
-    pub fn read_bytes(&mut self, len: usize) -> &'a [u8] {
+    pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], Error> {
         if self.pos + len > self.datalen {
-            panic!("read byts out of range");
+            return Err(Error::ReadOutOfRange);
         }
 
         let pos = self.pos;
         let data = &self.data[pos..(pos + len)];
         self.pos = pos + len;
-        data
+        Ok(data)
     }
 }

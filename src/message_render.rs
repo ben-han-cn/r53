@@ -1,4 +1,5 @@
 use util::{OutputBuffer, InputBuffer};
+use util::error::Error;
 use name::{Name, MAP_TO_LOWER, COMPRESS_POINTER_MARK8, COMPRESS_POINTER_MARK16, MAX_LABEL_COUNT};
 
 const MAX_COMPRESS_POINTER: usize = 0x3fff;
@@ -26,7 +27,7 @@ impl<'a> NameComparator<'a> {
         let mut item_pos = item.pos;
         loop {
             let label = self.next_label(item_pos);
-            let mut name_label_len = name_buffer.read_u8();
+            let mut name_label_len = name_buffer.read_u8().unwrap();
             if name_label_len != label.0 {
                 return false;
             } else if name_label_len == 0 {
@@ -35,8 +36,8 @@ impl<'a> NameComparator<'a> {
 
             item_pos = label.1;
             while name_label_len > 0 {
-                let ch1 = self.buffer.at(item_pos as usize);
-                let ch2 = name_buffer.read_u8();
+                let ch1 = self.buffer.at(item_pos as usize).unwrap();
+                let ch2 = name_buffer.read_u8().unwrap();
                 if self.case_sensitive {
                     if ch1 != ch2 {
                         return false;
@@ -55,11 +56,11 @@ impl<'a> NameComparator<'a> {
 
     fn next_label(&self, pos: u16) -> (u8, u16) {
         let mut next_pos = pos as usize;
-        let mut b = self.buffer.at(next_pos);
+        let mut b = self.buffer.at(next_pos).unwrap();
         while b & COMPRESS_POINTER_MARK8 == COMPRESS_POINTER_MARK8 {
-            let nb = self.buffer.at(next_pos + 1) as u16;
+            let nb = self.buffer.at(next_pos + 1).unwrap() as u16;
             next_pos = (((b & !(COMPRESS_POINTER_MARK8 as u8)) as u16) * 256 + nb) as usize;
-            b = self.buffer.at(next_pos);
+            b = self.buffer.at(next_pos).unwrap();
         }
         (b, (next_pos + 1) as u16)
     }
@@ -184,7 +185,7 @@ impl MessageRender {
 
         let mut name_len = name.len();
         for i in 0..label_uncompressed {
-            let label_len = self.buffer.at(name_pos);
+            let label_len = self.buffer.at(name_pos).unwrap();
             if label_len == 0 {
                 break;
             }
@@ -221,16 +222,16 @@ impl MessageRender {
         self.buffer.write_u8(d);
     }
 
-    pub fn write_u8_at(&mut self, d: u8, pos: usize) {
-        self.buffer.write_u8_at(d, pos);
+    pub fn write_u8_at(&mut self, d: u8, pos: usize) -> Option<Error> {
+        self.buffer.write_u8_at(d, pos)
     }
 
     pub fn write_u16(&mut self, d: u16) {
         self.buffer.write_u16(d);
     }
 
-    pub fn write_u16_at(&mut self, d: u16, pos: usize) {
-        self.buffer.write_u16_at(d, pos);
+    pub fn write_u16_at(&mut self, d: u16, pos: usize) -> Option<Error> {
+        self.buffer.write_u16_at(d, pos)
     }
 
     pub fn write_u32(&mut self, d: u32) {
