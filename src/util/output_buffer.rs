@@ -1,5 +1,3 @@
-use super::error::Error;
-
 pub struct OutputBuffer {
     data: Vec<u8>,
 }
@@ -21,12 +19,12 @@ impl OutputBuffer {
         self.data.as_slice()
     }
 
-    pub fn at(&self, pos: usize) -> Result<u8, Error> {
+    pub fn at(&self, pos: usize) -> u8 {
         if pos >= self.len() {
-            Err(Error::ReadOutOfRange)
-        } else {
-            Ok(self.data[pos])
+            panic!("output buffer out of range");
         }
+
+        self.data[pos]
     }
 
     pub fn skip(&mut self, len: usize) {
@@ -35,14 +33,13 @@ impl OutputBuffer {
         self.data.append(&mut vec![0; len]);
     }
 
-    pub fn trim(&mut self, len: usize) -> Option<Error> {
+    pub fn trim(&mut self, len: usize) {
         if len > self.len() {
-            return Some(Error::WriteOutOfRange);
+            panic!("trim output buffer out of range");
         }
 
         let keep_len = self.len() - len;
         self.data.truncate(keep_len);
-        None
     }
 
     pub fn clear(&mut self) {
@@ -53,13 +50,12 @@ impl OutputBuffer {
         self.data.push(d);
     }
 
-    pub fn write_u8_at(&mut self, d: u8, pos: usize) -> Option<Error> {
+    pub fn write_u8_at(&mut self, d: u8, pos: usize) {
         if pos + 1 > self.len() {
-            return Some(Error::WriteOutOfRange);
+            panic!("write output buffer out of range");
         }
 
         self.data[pos] = d;
-        None
     }
 
     pub fn write_u16(&mut self, d: u16) {
@@ -67,14 +63,13 @@ impl OutputBuffer {
         self.data.push((d & 0x00ff) as u8);
     }
 
-    pub fn write_u16_at(&mut self, d: u16, pos: usize) -> Option<Error> {
+    pub fn write_u16_at(&mut self, d: u16, pos: usize) {
         if pos + 2 > self.len() {
-            return Some(Error::WriteOutOfRange);
+            panic!("write output buffer out of range");
         }
 
         self.data[pos] = ((d & 0xff00) >> 8) as u8;
         self.data[pos + 1] = (d & 0x00ff) as u8;
-        None
     }
 
     pub fn write_u32(&mut self, d: u32) {
@@ -84,7 +79,7 @@ impl OutputBuffer {
         self.data.push((d & 0x000000ff) as u8);
     }
 
-    pub fn write_data(&mut self, data: &[u8]) {
+    pub fn write_bytes(&mut self, data: &[u8]) {
         self.data.extend_from_slice(data);
     }
 }

@@ -1,5 +1,8 @@
 use std::fmt;
 use std::cmp;
+use super::error::Error;
+use util::{InputBuffer, OutputBuffer};
+use message_render::MessageRender;
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum NameRelation {
@@ -16,7 +19,7 @@ pub const MAX_LABEL_LEN: u8 = 63;
 pub const COMPRESS_POINTER_MARK8: u8  = 0xc0;
 pub const COMPRESS_POINTER_MARK16: u16  = 0xc000;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Name {
     raw: Vec<u8>,
     offsets: Vec<u8>,
@@ -47,6 +50,13 @@ enum FtStat {
     Initialescape,
     Escape,
     Escdecimal,
+}
+
+#[derive(Eq, PartialEq)]
+enum FwStat {
+    Start,
+    Ordinary,
+    NewCurrent,
 }
 
 fn is_digit(c: char) -> bool {
@@ -269,6 +279,88 @@ fn string_parse(name_raw: &[u8],
             }
         }
 
+        pub fn from_wire(buf: &mut InputBuffer, downcase: bool) -> Result<Self, Error> {
+            let mut n: usize= 0;
+            let mut nused: usize = 0;
+            let mut cused: usize = 0;
+            let mut done = false;
+            let mut data: Vec<u8> = Vec::with_capacity(15);
+            let mut offsets: Vec<u8> = Vec::with_capacity(5);
+            let mut seen_pointer: bool = false;
+            let mut state = FwStat::Start;
+            let mut current = buf.postion() as usize;
+            let pos_beg = current;
+            let mut biggest_pointer = current;
+            let mut new_current: usize = 0;
+
+            while current < buf.len() && done == false {
+                let mut c = try!(buf.read_u8());
+                current += 1;
+                if seen_pointer == false {
+                    cused += 1;
+                }
+
+                if state == FwStat::Start {
+                    if c <= MAX_LABEL_LEN {
+                        offsets.push(nused as u8);
+                        if nused + (c as usize) + 1 > MAX_WIRE_LEN {
+                            return Err(Error::TooLongName);
+                        }
+
+                        nused += (c as usize) + 1;
+                        data.push(c);
+                        if c == 0 {
+                            done = true;
+                        }
+                        n = c as usize;
+                        state = FwStat::Ordinary;
+                    } else if c & COMPRESS_POINTER_MARK8 == COMPRESS_POINTER_MARK8 {
+                        new_current = (c & !COMPRESS_POINTER_MARK8) as usize;
+                        n = 1;
+                        state = FwStat::NewCurrent;
+                    } else {
+                        return Err(Error::InvalidLabelCharacter);
+                    }
+                } else if state == FwStat::Ordinary {
+                    if downcase {
+                        c = MAP_TO_LOWER[c as usize];
+                    }
+                    data.push(c);
+                    n -= 1;
+                    if n == 0 {
+                        state = FwStat::Start
+                    }
+                } else if state == FwStat::NewCurrent {
+                    new_current *= 256;
+                    new_current += c as usize;
+                    n -= 1;
+                    if n != 0 {
+                        break;
+                    }
+                    if new_current >= biggest_pointer {
+                        return Err(Error::BadCompressPointer);
+                    }
+                    biggest_pointer = new_current;
+                    current = new_current;
+                    buf.set_position(current);
+                    seen_pointer = true;
+                    state = FwStat::Start;
+                }
+            }
+
+            if done == false {
+                return Err(Error::InCompleteName);
+            }
+
+            buf.set_position(pos_beg + cused);
+            Ok(Name {
+                length: data.len() as u8,
+                label_count: offsets.len() as u8,
+                raw: data,
+                offsets: offsets,
+            })
+        }
+
         pub fn len(&self) -> usize {
             self.length as usize
         }
@@ -277,8 +369,16 @@ fn string_parse(name_raw: &[u8],
             return self.label_count as usize;
         }
 
+        pub fn to_wire(&self, buf: &mut OutputBuffer) {
+            buf.write_bytes(&self.raw);
+        }
+
+        pub fn rend(&self, render: &mut MessageRender) {
+            render.write_name(self, true);
+        }
+
         pub fn to_string(&self) -> String {
-            let mut buf = Vec::new();
+            let mut buf = Vec::with_capacity(self.len());
             let special_char: Vec<u8> = vec![0x22, 0x28, 0x29, 0x2E, 0x3B, 0x5C, 0x40, 0x24]; //" ( ) . ; \\ @ $
             let mut i = 0;
             while i < self.length {
@@ -314,7 +414,9 @@ fn string_parse(name_raw: &[u8],
                 }
             }
 
-            String::from_utf8(buf).unwrap()
+            unsafe {
+                String::from_utf8_unchecked(buf)
+            }
         }
 
 

@@ -2,7 +2,7 @@ use opcode::Opcode;
 use rcode::Rcode;
 use header_flag::{HeaderFlag, set_flag, clear_flag, setted_flags};
 use util::{InputBuffer, OutputBuffer};
-use util::error::Error;
+use super::error::Error;
 use message_render::MessageRender;
 use std::fmt::Write;
 

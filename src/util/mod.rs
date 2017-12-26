@@ -1,4 +1,3 @@
-pub mod error;
 mod input_buffer;
 mod output_buffer;
 pub mod hex;
