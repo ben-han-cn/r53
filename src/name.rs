@@ -116,7 +116,7 @@ fn string_parse(name_raw: &[u8],
                 start_pos: usize,
                 end: usize,
                 downcase: bool)
--> Result<(Vec<u8>, Vec<u8>), &'static str> {
+-> Result<(Vec<u8>, Vec<u8>), Error> {
     let mut start = start_pos;
     let mut data: Vec<u8> = Vec::with_capacity(end - start + 1);
     let mut offsets: Vec<u8> = Vec::new();
@@ -139,7 +139,7 @@ fn string_parse(name_raw: &[u8],
         if state == FtStat::Init {
             if c == '.' {
                 if start != end {
-                    return Err("non terminating empty label");
+                    return Err(Error::NoneTerminateLabel);
                 } else {
                     is_root = true;
                 }
@@ -166,7 +166,7 @@ fn string_parse(name_raw: &[u8],
         } else if state == FtStat::Ordinary {
             if c == '.' {
                 if count == 0 {
-                    return Err("duplicate period");
+                    return Err(Error::DuplicatePeriod);
                 }
                 data[offsets[offsets.len() - 1] as usize] = count;
                 offsets.push(data.len() as u8);
@@ -180,7 +180,7 @@ fn string_parse(name_raw: &[u8],
             } else {
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err("too long label");
+                    return Err(Error::TooLongLabel);
                 }
                 if downcase {
                     data.push(lower_caes(c as usize));
@@ -191,7 +191,7 @@ fn string_parse(name_raw: &[u8],
             next_u8 = true;
         } else if state == FtStat::Initialescape {
             if c == '[' {
-                return Err("invalid label type");
+                return Err(Error::InvalidLabelCharacter);
             }
             state = FtStat::Escape;
             next_u8 = false;
@@ -199,7 +199,7 @@ fn string_parse(name_raw: &[u8],
             if is_digit(c) == false {
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err("too long label");
+                    return Err(Error::TooLongLabel);
                 }
                 if downcase {
                     data.push(lower_caes(c as usize));
@@ -215,18 +215,18 @@ fn string_parse(name_raw: &[u8],
             next_u8 = false;
         } else if state == FtStat::Escdecimal {
             if is_digit(c) == false {
-                return Err("mixture of escaped digit and non-digit");
+                return Err(Error::InvalidDecimalFormat);
             }
             value = value * 10;
             value = value + digitvalue(c as usize) as i32;
             digits += 1;
             if digits == 3 {
                 if value > 255 {
-                    return Err("escaped decimal is to larg");
+                    return Err(Error::InvalidDecimalFormat);
                 }
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err("lable is too long");
+                    return Err(Error::TooLongLabel);
                 }
                 if downcase {
                     data.push(lower_caes(c as usize));
@@ -243,13 +243,13 @@ fn string_parse(name_raw: &[u8],
 
     if done == false {
         if data.len() == MAX_WIRE_LEN {
-            return Err("too long name");
+            return Err(Error::TooLongName);
         }
         if start != end {
             panic!("start should equal to end");
         }
         if state != FtStat::Ordinary {
-            return Err("incomplete textural name");
+            return Err(Error::InCompleteName);
         } else {
             if count == 0 {
                 panic!("count shouldn't equal to zero");
@@ -264,7 +264,7 @@ fn string_parse(name_raw: &[u8],
 }
 
     impl Name {
-        pub fn new(name: &str, downcase: bool) -> Result<Name, &'static str> {
+        pub fn new(name: &str, downcase: bool) -> Result<Name, Error> {
             let name_len = name.len();
             match string_parse(name.as_bytes(), 0, name_len, downcase) {
                 Ok((data, offsets)) => {
@@ -288,7 +288,7 @@ fn string_parse(name_raw: &[u8],
             let mut offsets: Vec<u8> = Vec::with_capacity(5);
             let mut seen_pointer: bool = false;
             let mut state = FwStat::Start;
-            let mut current = buf.postion() as usize;
+            let mut current = buf.position() as usize;
             let pos_beg = current;
             let mut biggest_pointer = current;
             let mut new_current: usize = 0;

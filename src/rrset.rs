@@ -8,7 +8,7 @@ use rdata::RData;
 use std::fmt::Write;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct RRTtl(u32);
+pub struct RRTtl(pub u32);
 
 
 impl RRTtl {
@@ -32,11 +32,11 @@ impl RRTtl {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RRset {
-    name: Name,
-    typ: RRType,
-    class: RRClass,
-    ttl: RRTtl,
-    rdatas: Vec<RData>,
+    pub name: Name,
+    pub typ: RRType,
+    pub class: RRClass,
+    pub ttl: RRTtl,
+    pub rdatas: Vec<RData>,
 }
 
 
@@ -108,7 +108,7 @@ impl RRset {
     pub fn to_string(&self) -> String {
         let mut rrset_str = String::new();
         self.rdatas.iter().for_each(|rdata| {
-            write!(&mut rrset_str, "{}\t{}\t", self.header(), rdata.to_string()).unwrap();
+            write!(&mut rrset_str, "{}\t{}\n", self.header(), rdata.to_string()).unwrap();
         });
         rrset_str
     }
@@ -120,5 +120,38 @@ impl RRset {
             self.class.to_string(),
             self.typ.to_string(),
         ].join("\t")
+    }
+
+    pub fn rr_count(&self) -> usize {
+        self.rdatas.len()
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use util::hex::from_hex;
+    use super::super::rdata_a::A;
+
+    #[test]
+    fn test_rrset_to_wire() {
+        let raw = from_hex(
+            "0474657374076578616d706c6503636f6d000001000100000e100004c0000201",
+        ).unwrap();
+        let mut buf = InputBuffer::new(raw.as_slice());
+        let rrset = RRset::from_wire(&mut buf).unwrap();
+        let desired_rrset = RRset {
+            name: Name::new("test.example.com.", false).unwrap(),
+            typ: RRType::A,
+            class: RRClass::IN,
+            ttl: RRTtl(3600),
+            rdatas: [RData::A(A::from_string("192.0.2.1").unwrap())].to_vec(),
+        };
+        assert_eq!(rrset, desired_rrset);
+
+        let mut render = MessageRender::new();
+        desired_rrset.rend(&mut render);
+        assert_eq!(raw.as_slice(), render.data());
     }
 }

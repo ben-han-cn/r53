@@ -11,9 +11,10 @@ const OPCODE_MASK: u16 = 0x7800;
 const OPCODE_SHIFT: u16 = 11;
 const RCODE_MASK: u16 = 0x000f;
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Header {
     pub id: u16,
-    flag: u16,
+    pub flag: u16,
     pub opcode: Opcode,
     pub rcode: Rcode,
     pub qd_count: u16,

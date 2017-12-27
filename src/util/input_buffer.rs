@@ -25,7 +25,7 @@ impl<'a> InputBuffer<'a> {
         self.datalen
     }
 
-    pub fn postion(&self) -> usize {
+    pub fn position(&self) -> usize {
         self.pos
     }
 

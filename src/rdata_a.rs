@@ -20,6 +20,11 @@ impl A {
         get_ipv4_addr(buf).map(|addr| A { host: addr })
     }
 
+    pub fn from_string(ip_str: &str) -> Result<Self, Error> {
+        let ip = ip_str.parse().map_err(|_| Error::InvalidIPv4Address)?;
+        Ok(A { host: ip })
+    }
+
     pub fn rend(&self, render: &mut MessageRender) {
         let segments = self.host.octets();
         render.write_u8(segments[0]);

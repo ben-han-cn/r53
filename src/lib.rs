@@ -1,7 +1,7 @@
+pub mod util;
 pub mod rcode;
 pub mod opcode;
 pub mod name;
-pub mod util;
 pub mod message_render;
 pub mod header_flag;
 pub mod header;
@@ -18,6 +18,9 @@ pub mod rdata_opt;
 pub mod rdata_ptr;
 pub mod rdata_soa;
 pub mod rrset;
+pub mod question;
+pub mod edns;
+pub mod message;
 mod error;
 use error::*;
 

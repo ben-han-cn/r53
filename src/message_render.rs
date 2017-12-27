@@ -1,5 +1,4 @@
 use util::{OutputBuffer, InputBuffer};
-use super::error::Error;
 use name::{Name, MAP_TO_LOWER, COMPRESS_POINTER_MARK8, COMPRESS_POINTER_MARK16, MAX_LABEL_COUNT};
 
 const MAX_COMPRESS_POINTER: usize = 0x3fff;

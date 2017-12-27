@@ -27,7 +27,8 @@ pub enum RData {
 
 impl RData {
     pub fn from_wire(typ: RRType, buf: &mut InputBuffer, len: u16) -> Result<Self, Error> {
-        match typ {
+        let pos = buf.position();
+        let rdata = match typ {
             RRType::A => rdata_a::A::from_wire(buf, len).map(|a| RData::A(a)),
             RRType::NS => rdata_ns::NS::from_wire(buf, len).map(|ns| RData::NS(ns)),
             RRType::AAAA => rdata_aaaa::AAAA::from_wire(buf, len).map(|aaaa| RData::AAAA(aaaa)),
@@ -41,6 +42,12 @@ impl RData {
             }
             RRType::OPT => rdata_opt::OPT::from_wire(buf, len).map(|opt| RData::OPT(opt)),
             _ => Err(Error::UnknownRRType),
+        };
+
+        if rdata.is_ok() && buf.position() - pos != (len as usize) {
+            Err(Error::RdataLenIsNotCorrect)
+        } else {
+            rdata
         }
     }
 

@@ -13,6 +13,11 @@ impl NS {
         Name::from_wire(buf, false).map(|name| NS { name: name })
     }
 
+    pub fn from_string(name_str: &str) -> Result<Self, Error> {
+        let name = Name::new(name_str, false)?;
+        Ok(NS { name: name })
+    }
+
     pub fn rend(&self, render: &mut MessageRender) {
         render.write_name(&self.name, true);
     }

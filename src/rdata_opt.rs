@@ -1,7 +1,6 @@
 use util::{InputBuffer, OutputBuffer};
 use util::hex::to_hex;
 use message_render::MessageRender;
-use name::Name;
 use super::error::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
