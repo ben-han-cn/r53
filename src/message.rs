@@ -39,7 +39,7 @@ impl Section {
         let mut last_rrset = RRset::from_wire(buf)?;
         for _ in 1..rr_count {
             let mut rrset = RRset::from_wire(buf)?;
-            if rrset.typ == last_rrset.typ {
+            if rrset.is_same_rrset(&last_rrset) {
                 last_rrset.rdatas.push(rrset.rdatas.remove(0));
             } else {
                 rrsets.push(last_rrset);

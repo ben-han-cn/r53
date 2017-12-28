@@ -125,6 +125,10 @@ impl RRset {
     pub fn rr_count(&self) -> usize {
         self.rdatas.len()
     }
+
+    pub fn is_same_rrset(&self, other: &RRset) -> bool {
+        self.typ == other.typ && self.name.eq(&other.name)
+    }
 }
 
 
