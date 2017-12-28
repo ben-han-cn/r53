@@ -14,6 +14,7 @@ pub mod rdata_aaaa;
 pub mod rdata_cname;
 pub mod rdata_mx;
 pub mod rdata_naptr;
+pub mod rdata_dname;
 pub mod rdata_opt;
 pub mod rdata_ptr;
 pub mod rdata_soa;
@@ -22,7 +23,6 @@ pub mod question;
 pub mod edns;
 pub mod message;
 mod error;
-use error::*;
 
 pub use rcode::Rcode;
 pub use opcode::Opcode;

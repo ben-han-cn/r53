@@ -10,6 +10,7 @@ use rdata_soa;
 use rdata_ptr;
 use rdata_mx;
 use rdata_naptr;
+use rdata_dname;
 use rdata_opt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -22,6 +23,7 @@ pub enum RData {
     PTR(rdata_ptr::PTR),
     MX(rdata_mx::MX),
     NAPTR(rdata_naptr::NAPTR),
+    DNAME(rdata_dname::DName),
     OPT(rdata_opt::OPT),
 }
 
@@ -36,9 +38,13 @@ impl RData {
                 rdata_cname::CName::from_wire(buf, len).map(|cname| RData::CName(cname))
             }
             RRType::SOA => rdata_soa::SOA::from_wire(buf, len).map(|soa| RData::SOA(soa)),
+            RRType::PTR => rdata_ptr::PTR::from_wire(buf, len).map(|ptr| RData::PTR(ptr)),
             RRType::MX => rdata_mx::MX::from_wire(buf, len).map(|mx| RData::MX(mx)),
             RRType::NAPTR => {
                 rdata_naptr::NAPTR::from_wire(buf, len).map(|naptr| RData::NAPTR(naptr))
+            }
+            RRType::DNAME => {
+                rdata_dname::DName::from_wire(buf, len).map(|dname| RData::DNAME(dname))
             }
             RRType::OPT => rdata_opt::OPT::from_wire(buf, len).map(|opt| RData::OPT(opt)),
             _ => Err(Error::UnknownRRType),
@@ -58,10 +64,11 @@ impl RData {
             RData::AAAA(ref aaaa) => aaaa.rend(render),
             RData::CName(ref cname) => cname.rend(render),
             RData::SOA(ref soa) => soa.rend(render),
+            RData::PTR(ref ptr) => ptr.rend(render),
             RData::MX(ref mx) => mx.rend(render),
             RData::NAPTR(ref naptr) => naptr.rend(render),
+            RData::DNAME(ref dname) => dname.rend(render),
             RData::OPT(ref opt) => opt.rend(render),
-            _ => (),
         }
     }
 
@@ -72,10 +79,11 @@ impl RData {
             RData::AAAA(ref aaaa) => aaaa.to_wire(buf),
             RData::CName(ref cname) => cname.to_wire(buf),
             RData::SOA(ref soa) => soa.to_wire(buf),
+            RData::PTR(ref ptr) => ptr.to_wire(buf),
             RData::MX(ref mx) => mx.to_wire(buf),
             RData::NAPTR(ref naptr) => naptr.to_wire(buf),
+            RData::DNAME(ref dname) => dname.to_wire(buf),
             RData::OPT(ref opt) => opt.to_wire(buf),
-            _ => (),
         }
     }
 
@@ -86,10 +94,11 @@ impl RData {
             RData::AAAA(ref aaaa) => aaaa.to_string(),
             RData::CName(ref cname) => cname.to_string(),
             RData::SOA(ref soa) => soa.to_string(),
+            RData::PTR(ref ptr) => ptr.to_string(),
             RData::MX(ref mx) => mx.to_string(),
             RData::NAPTR(ref naptr) => naptr.to_string(),
+            RData::DNAME(ref dname) => dname.to_string(),
             RData::OPT(ref opt) => opt.to_string(),
-            _ => "".to_owned(),
         }
     }
 }

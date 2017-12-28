@@ -1,11 +1,9 @@
 use util::OutputBuffer;
 use message_render::MessageRender;
-use super::error::Error;
 use rrset::{RRset, RRTtl};
 use rr_type::RRType;
 use rr_class::RRClass;
 use std::fmt::Write;
-use name::Name;
 
 const VERSION_SHIFT: u32 = 16;
 const EXTRCODE_SHIFT: u32 = 24;

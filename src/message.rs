@@ -66,7 +66,7 @@ impl Section {
         }
     }
 
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         let mut rrset_str = String::new();
         if let Some(ref rrsets) = self.0 {
             for rrset in rrsets {
@@ -145,7 +145,7 @@ impl Message {
         }
     }
 
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         let mut message_str = String::new();
         write!(message_str, "{}", self.header.to_string()).unwrap();
         if let Some(ref edns) = self.edns {
