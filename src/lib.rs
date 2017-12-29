@@ -31,3 +31,4 @@ pub use name::Name;
 pub use name::NameRelation;
 pub use message_render::MessageRender;
 pub use header::Header;
+pub use error::Error;

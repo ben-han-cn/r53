@@ -37,9 +37,6 @@ impl MX {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use util::hex::from_hex;
-
     #[test]
     fn test_mx_to_wire() {}
 }

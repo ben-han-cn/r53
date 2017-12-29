@@ -28,8 +28,6 @@ impl PTR {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
     #[test]
     fn test_ptr_to_wire() {}
 }

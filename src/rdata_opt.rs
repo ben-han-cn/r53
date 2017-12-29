@@ -30,9 +30,6 @@ impl OPT {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use util::hex::from_hex;
-
     #[test]
     fn test_opt_to_wire() {}
 }

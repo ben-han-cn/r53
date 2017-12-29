@@ -144,6 +144,7 @@ impl MessageRender {
         let mut label_uncompressed = 0;
         let mut offset = NO_OFFSET;
         let mut parent = name.clone();
+        //TODO, use reference instead of name copy to find offset
         while label_uncompressed < label_count {
             if label_uncompressed > 0 {
                 parent = parent.strip_left(1).unwrap();

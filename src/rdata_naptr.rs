@@ -57,9 +57,6 @@ impl NAPTR {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use util::hex::from_hex;
-
     #[test]
     fn test_naptr_to_wire() {}
 }
