@@ -21,10 +21,10 @@ pub const COMPRESS_POINTER_MARK16: u16  = 0xc000;
 
 #[derive(Debug, Clone)]
 pub struct Name {
-    raw: Vec<u8>,
-    offsets: Vec<u8>,
+    pub raw: Vec<u8>,
+    pub offsets: Vec<u8>,
     length: u8,
-    label_count: u8,
+    pub label_count: u8,
 }
 
 pub fn root() -> Name {
@@ -108,8 +108,30 @@ pub static MAP_TO_LOWER: &'static [u8] =
 0xff];
 
 #[inline]
-fn lower_caes(c: usize) -> u8 {
+pub fn lower_caes(c: usize) -> u8 {
     MAP_TO_LOWER[c]
+}
+
+pub fn hash_raw(raw: &[u8], case_sensitive: bool) -> u32 {
+    let mut hash: u32 = 0;
+    let seed: u32 = 0x9e3779b9;
+    let length = raw.len();
+    if case_sensitive {
+        for i in 0..(length as usize) {
+            hash ^= (raw[i] as u32)
+                .wrapping_add(seed)
+                .wrapping_add(hash << 6)
+                .wrapping_add(hash >> 2);
+        }
+    } else {
+        for i in 0..(length as usize) {
+            hash ^= (lower_caes(raw[i] as usize) as u32)
+                .wrapping_add(seed)
+                .wrapping_add(hash << 6)
+                .wrapping_add(hash >> 2);
+        }
+    }
+    hash
 }
 
 fn string_parse(name_raw: &[u8],
@@ -710,24 +732,7 @@ fn string_parse(name_raw: &[u8],
         }
 
         pub fn hash(&self, case_sensitive: bool) -> u32 {
-            let mut hash: u32 = 0;
-            let seed: u32 = 0x9e3779b9;
-            if case_sensitive {
-                for i in 0..(self.length as usize) {
-                    hash ^= (self.raw[i] as u32)
-                        .wrapping_add(seed)
-                        .wrapping_add(hash << 6)
-                        .wrapping_add(hash >> 2);
-                }
-            } else {
-                for i in 0..(self.length as usize) {
-                    hash ^= (lower_caes(self.raw[i] as usize) as u32)
-                        .wrapping_add(seed)
-                        .wrapping_add(hash << 6)
-                        .wrapping_add(hash >> 2);
-                }
-            }
-            hash
+            hash_raw(self.raw.as_slice(), case_sensitive)
         }
 
         pub fn is_subdomain(&self, parent: &Name) -> bool {
