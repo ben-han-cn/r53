@@ -237,7 +237,7 @@ mod test {
             typ: RRType::NS,
             class: RRClass::IN,
             ttl: RRTtl(3600),
-            rdatas: [RData::NS(NS::from_string("ns1.example.com.").unwrap())].to_vec(),
+            rdatas: [RData::NS(Box::new(NS::from_string("ns1.example.com.").unwrap()))].to_vec(),
         });
 
         let mut additional = Vec::with_capacity(1);
