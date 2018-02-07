@@ -35,6 +35,6 @@ impl fmt::Display for Error {
             Error::ShortOfQuestion => "message short of question",
         };
 
-        f.write_fmt(format_args!("buffer error ({})", msg))
+        f.write_str(msg)
     }
 }
