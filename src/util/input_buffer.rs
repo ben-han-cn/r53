@@ -30,9 +30,7 @@ impl<'a> InputBuffer<'a> {
     }
 
     pub fn set_position(&mut self, p: usize) {
-        if p > self.datalen {
-            panic!("out of range");
-        }
+        assert!(p <= self.datalen);
         self.pos = p;
     }
 

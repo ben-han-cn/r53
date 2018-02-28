@@ -24,9 +24,7 @@ pub struct EdnsOption {}
 
 impl Edns {
     pub fn from_rrset(rrset: &RRset) -> Edns {
-        if rrset.typ != RRType::OPT {
-            panic!("edns rr type isn't opt");
-        }
+        assert!(rrset.typ == RRType::OPT);
 
         let flags = rrset.ttl.0;
         Edns {

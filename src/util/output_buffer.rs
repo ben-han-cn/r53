@@ -20,10 +20,7 @@ impl OutputBuffer {
     }
 
     pub fn at(&self, pos: usize) -> u8 {
-        if pos >= self.len() {
-            panic!("output buffer out of range");
-        }
-
+        assert!(pos < self.len());
         self.data[pos]
     }
 
@@ -34,10 +31,7 @@ impl OutputBuffer {
     }
 
     pub fn trim(&mut self, len: usize) {
-        if len > self.len() {
-            panic!("trim output buffer out of range");
-        }
-
+        assert!(len <= self.len());
         let keep_len = self.len() - len;
         self.data.truncate(keep_len);
     }
@@ -51,10 +45,7 @@ impl OutputBuffer {
     }
 
     pub fn write_u8_at(&mut self, d: u8, pos: usize) {
-        if pos + 1 > self.len() {
-            panic!("write output buffer out of range");
-        }
-
+        assert!(pos + 1 <= self.len());
         self.data[pos] = d;
     }
 
@@ -64,10 +55,7 @@ impl OutputBuffer {
     }
 
     pub fn write_u16_at(&mut self, d: u16, pos: usize) {
-        if pos + 2 > self.len() {
-            panic!("write output buffer out of range");
-        }
-
+        assert!(pos + 2 <= self.len());
         self.data[pos] = ((d & 0xff00) >> 8) as u8;
         self.data[pos + 1] = (d & 0x00ff) as u8;
     }

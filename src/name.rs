@@ -267,15 +267,11 @@ fn string_parse(name_raw: &[u8],
         if data.len() == MAX_WIRE_LEN {
             return Err(Error::TooLongName);
         }
-        if start != end {
-            panic!("start should equal to end");
-        }
+        assert!(start == end);
         if state != FtStat::Ordinary {
             return Err(Error::InCompleteName);
         } else {
-            if count == 0 {
-                panic!("count shouldn't equal to zero");
-            }
+            assert!(count != 0);
             data[offsets[offsets.len() - 1] as usize] = count as u8;
             offsets.push(data.len() as u8);
             data.push(0);
