@@ -1,6 +1,9 @@
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
 use super::error::Error;
+use super::name::Name;
+use super::rr_class::RRClass;
+use super::header_flag::HeaderFlag;
 use rrset::RRset;
 use rr_type::RRType;
 use header::Header;
@@ -86,6 +89,21 @@ pub struct Message {
 }
 
 impl Message {
+    pub fn with_query(name: Name, qtype: RRType) -> Self {
+        let mut header: Header = Default::default();
+        header.set_flag(HeaderFlag::RecursionDesired, true);
+        return Message{
+            header: header,
+            question: Question {
+                name: name,
+                typ: qtype,
+                class: RRClass::IN,
+            },
+            sections: [Section(None), Section(None), Section(None)],
+            edns: None,
+        }
+    }
+
     pub fn from_wire(buf: &mut InputBuffer) -> Result<Self, Error> {
         let header = Header::from_wire(buf)?;
         if header.qd_count != 1 {

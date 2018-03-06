@@ -121,6 +121,34 @@ impl RRType {
         buf.read_u16().map(|n| RRType::new(n))
     }
 
+    pub fn from_string(s: &str) -> Option<Self> {
+        match s.to_uppercase().as_ref() {
+            "A" => Some(RRType::A),
+            "NS" => Some(RRType::NS),
+            "CNAME" => Some(RRType::CNAME),
+            "SOA" => Some(RRType::SOA),
+            "PTR" => Some(RRType::PTR),
+            "MX" => Some(RRType::MX),
+            "TXT" => Some(RRType::TXT),
+            "AAAA" => Some(RRType::AAAA),
+            "SRV" => Some(RRType::SRV),
+            "NAPTR" => Some(RRType::NAPTR),
+            "DNAME" => Some(RRType::DNAME),
+            "OPT" => Some(RRType::OPT),
+            "DS" => Some(RRType::DS),
+            "RRSIG" => Some(RRType::RRSIG),
+            "NSEC" => Some(RRType::NSEC),
+            "DNSKEY" => Some(RRType::DNSKEY),
+            "NSEC3" => Some(RRType::NSEC3),
+            "NSEC3PARAM" => Some(RRType::NSEC3PARAM),
+            "TSIG" => Some(RRType::TSIG),
+            "IXFR" => Some(RRType::IXFR),
+            "AXFR" => Some(RRType::AXFR),
+            "ANY" => Some(RRType::ANY),
+            _ => None,
+        }
+    }
+
     pub fn rend(&self, render: &mut MessageRender) {
         render.write_u16(self.to_u16());
     }

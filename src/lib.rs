@@ -30,5 +30,8 @@ pub use header_flag::HeaderFlag;
 pub use name::Name;
 pub use name::NameRelation;
 pub use message_render::MessageRender;
+pub use message::Message;
 pub use header::Header;
 pub use error::Error;
+pub use rr_type::RRType;
+pub use util::InputBuffer;

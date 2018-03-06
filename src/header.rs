@@ -112,6 +112,21 @@ impl Header {
     }
 }
 
+impl Default for Header {
+    fn default() -> Header {
+        return Header {
+            id: 52091,
+            flag: 0,
+            opcode: Opcode::Query,
+            rcode: Rcode::NoError,
+            qd_count: 1,
+            an_count: 0,
+            ns_count: 0,
+            ar_count: 0,
+        };
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
