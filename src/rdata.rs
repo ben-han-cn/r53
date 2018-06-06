@@ -1,7 +1,7 @@
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
 use rr_type::RRType;
-use super::error::Error;
+use super::error::*;
 use rdata_a;
 use rdata_ns;
 use rdata_aaaa;
@@ -28,7 +28,7 @@ pub enum RData {
 }
 
 impl RData {
-    pub fn from_wire(typ: RRType, buf: &mut InputBuffer, len: u16) -> Result<Self, Error> {
+    pub fn from_wire(typ: RRType, buf: &mut InputBuffer, len: u16) -> Result<Self> {
         let pos = buf.position();
         let rdata = match typ {
             RRType::A => rdata_a::A::from_wire(buf, len).map(|a| RData::A(a)),
@@ -47,11 +47,11 @@ impl RData {
                 rdata_dname::DName::from_wire(buf, len).map(|dname| RData::DNAME(Box::new(dname)))
             }
             RRType::OPT => rdata_opt::OPT::from_wire(buf, len).map(|opt| RData::OPT(Box::new(opt))),
-            _ => Err(Error::UnknownRRType),
+            _ => Err(ErrorKind::UnknownRRType.into()),
         };
 
         if rdata.is_ok() && buf.position() - pos != (len as usize) {
-            Err(Error::RdataLenIsNotCorrect)
+            Err(ErrorKind::RdataLenIsNotCorrect.into())
         } else {
             rdata
         }

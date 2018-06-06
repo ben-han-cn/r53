@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["hanfeng <ben.han.cn@gmail.com>"]
 
 [dependencies]
+error-chain = { version = "0.11", default-features = false }
 
 [lib]
 name = "r53"

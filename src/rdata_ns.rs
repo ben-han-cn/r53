@@ -41,7 +41,7 @@ mod test {
         let raw = from_hex("0474657374076578616d706c6503636f6d00").unwrap();
         let mut buf = InputBuffer::new(raw.as_slice());
         let ns = NS::from_wire(&mut buf, raw.len() as u16).unwrap();
-        assert_eq!(Ok(ns.name.clone()), Name::new("test.example.com", false));
+        assert_eq!(&ns.name, &Name::new("test.example.com", false).unwrap());
 
         let mut render = MessageRender::new();
         ns.rend(&mut render);

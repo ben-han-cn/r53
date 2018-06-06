@@ -1,3 +1,7 @@
+#[macro_use]
+extern crate error_chain;
+
+pub mod error;
 pub mod util;
 pub mod rcode;
 pub mod opcode;
@@ -22,7 +26,6 @@ pub mod rrset;
 pub mod question;
 pub mod edns;
 pub mod message;
-mod error;
 
 pub use rcode::Rcode;
 pub use opcode::Opcode;
@@ -32,6 +35,5 @@ pub use name::NameRelation;
 pub use message_render::MessageRender;
 pub use message::Message;
 pub use header::Header;
-pub use error::Error;
 pub use rr_type::RRType;
 pub use util::InputBuffer;

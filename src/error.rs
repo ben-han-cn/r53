@@ -1,40 +1,46 @@
-use std::fmt;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Error {
-    InCompleteWire,
-    TooLongName,
-    TooLongLabel,
-    InvalidDecimalFormat,
-    NoneTerminateLabel,
-    DuplicatePeriod,
-    UnknownRRType,
-    InvalidLabelCharacter,
-    BadCompressPointer,
-    InCompleteName,
-    RdataLenIsNotCorrect,
-    InvalidIPv4Address,
-    ShortOfQuestion,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let msg = match *self {
-            Error::InCompleteWire => "wire format is incomplete",
-            Error::UnknownRRType => "rr type is unknown",
-            Error::TooLongName => "name is too long",
-            Error::TooLongLabel => "label is too long",
-            Error::InvalidDecimalFormat => "escaped decimal isn't valid",
-            Error::NoneTerminateLabel => "non terminating empty label",
-            Error::DuplicatePeriod => "duplicate period",
-            Error::InvalidLabelCharacter => "character isn't valid",
-            Error::BadCompressPointer => "compress pointer in name isn't valid",
-            Error::InCompleteName => "name isn't completed",
-            Error::RdataLenIsNotCorrect => "rdata len isn't correct",
-            Error::InvalidIPv4Address => "ipv4 address isn't valid",
-            Error::ShortOfQuestion => "message short of question",
-        };
-
-        f.write_str(msg)
+error_chain! {
+    errors {
+        InCompleteWire {
+            display("wire data is incomplete"),
+        }
+        TooLongName {
+            display("name is too long"),
+        }
+        TooLongLabel {
+            display("label is too long"),
+        }
+        InvalidDecimalFormat {
+            display("decimal format isn't valid"),
+        }
+        NoneTerminateLabel {
+            display("none terminate label"),
+        }
+        DuplicatePeriod {
+            display("period is duplicate"),
+        }
+        UnknownRRType {
+            display("unknown rr type"),
+        }
+        InvalidLabelCharacter {
+            display("invalid label character"),
+        }
+        BadCompressPointer {
+            display("compress format isn't valid"),
+        }
+        InCompleteName {
+            display("name isn't complete"),
+        }
+        RdataLenIsNotCorrect {
+            display("length of rdata isn't correct"),
+        }
+        InvalidIPv4Address {
+            display("invalid ipv4 address"),
+        }
+        ShortOfQuestion {
+            display("no question is provided"),
+        }
+        InvalidLabelIndex {
+            display("label index is invalid"),
+        }
     }
 }

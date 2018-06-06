@@ -1,6 +1,6 @@
 use std::fmt;
 use std::cmp;
-use super::error::Error;
+use super::error::*;
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
 
@@ -138,7 +138,7 @@ fn string_parse(name_raw: &[u8],
                 start_pos: usize,
                 end: usize,
                 downcase: bool)
--> Result<(Vec<u8>, Vec<u8>), Error> {
+-> Result<(Vec<u8>, Vec<u8>)> {
     let mut start = start_pos;
     let mut data: Vec<u8> = Vec::with_capacity(end - start + 1);
     let mut offsets: Vec<u8> = Vec::new();
@@ -161,7 +161,7 @@ fn string_parse(name_raw: &[u8],
         if state == FtStat::Init {
             if c == '.' {
                 if start != end {
-                    return Err(Error::NoneTerminateLabel);
+                    return Err(ErrorKind::NoneTerminateLabel.into());
                 } else {
                     is_root = true;
                 }
@@ -188,7 +188,7 @@ fn string_parse(name_raw: &[u8],
         } else if state == FtStat::Ordinary {
             if c == '.' {
                 if count == 0 {
-                    return Err(Error::DuplicatePeriod);
+                    return Err(ErrorKind::DuplicatePeriod.into());
                 }
                 data[offsets[offsets.len() - 1] as usize] = count;
                 offsets.push(data.len() as u8);
@@ -202,7 +202,7 @@ fn string_parse(name_raw: &[u8],
             } else {
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err(Error::TooLongLabel);
+                    return Err(ErrorKind::TooLongLabel.into());
                 }
                 if downcase {
                     data.push(lower_caes(c as usize));
@@ -213,7 +213,7 @@ fn string_parse(name_raw: &[u8],
             next_u8 = true;
         } else if state == FtStat::Initialescape {
             if c == '[' {
-                return Err(Error::InvalidLabelCharacter);
+                return Err(ErrorKind::InvalidLabelCharacter.into());
             }
             state = FtStat::Escape;
             next_u8 = false;
@@ -221,7 +221,7 @@ fn string_parse(name_raw: &[u8],
             if is_digit(c) == false {
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err(Error::TooLongLabel);
+                    return Err(ErrorKind::TooLongLabel.into());
                 }
                 if downcase {
                     data.push(lower_caes(c as usize));
@@ -237,18 +237,18 @@ fn string_parse(name_raw: &[u8],
             next_u8 = false;
         } else if state == FtStat::Escdecimal {
             if is_digit(c) == false {
-                return Err(Error::InvalidDecimalFormat);
+                return Err(ErrorKind::InvalidDecimalFormat.into());
             }
             value = value * 10;
             value = value + digitvalue(c as usize) as i32;
             digits += 1;
             if digits == 3 {
                 if value > 255 {
-                    return Err(Error::InvalidDecimalFormat);
+                    return Err(ErrorKind::InvalidDecimalFormat.into());
                 }
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err(Error::TooLongLabel);
+                    return Err(ErrorKind::TooLongLabel.into());
                 }
                 if downcase {
                     data.push(lower_caes(c as usize));
@@ -265,11 +265,11 @@ fn string_parse(name_raw: &[u8],
 
     if done == false {
         if data.len() == MAX_WIRE_LEN {
-            return Err(Error::TooLongName);
+            return Err(ErrorKind::TooLongName.into());
         }
         assert!(start == end);
         if state != FtStat::Ordinary {
-            return Err(Error::InCompleteName);
+            return Err(ErrorKind::InCompleteName.into());
         } else {
             assert!(count != 0);
             data[offsets[offsets.len() - 1] as usize] = count as u8;
@@ -282,7 +282,7 @@ fn string_parse(name_raw: &[u8],
 }
 
     impl Name {
-        pub fn new(name: &str, downcase: bool) -> Result<Name, Error> {
+        pub fn new(name: &str, downcase: bool) -> Result<Name> {
             let name_len = name.len();
             match string_parse(name.as_bytes(), 0, name_len, downcase) {
                 Ok((data, offsets)) => {
@@ -297,7 +297,7 @@ fn string_parse(name_raw: &[u8],
             }
         }
 
-        pub fn from_wire(buf: &mut InputBuffer, downcase: bool) -> Result<Self, Error> {
+        pub fn from_wire(buf: &mut InputBuffer, downcase: bool) -> Result<Self> {
             let mut n: usize= 0;
             let mut nused: usize = 0;
             let mut cused: usize = 0;
@@ -322,7 +322,7 @@ fn string_parse(name_raw: &[u8],
                     if c <= MAX_LABEL_LEN {
                         offsets.push(nused as u8);
                         if nused + (c as usize) + 1 > MAX_WIRE_LEN {
-                            return Err(Error::TooLongName);
+                            return Err(ErrorKind::TooLongName.into());
                         }
 
                         nused += (c as usize) + 1;
@@ -337,7 +337,7 @@ fn string_parse(name_raw: &[u8],
                         n = 1;
                         state = FwStat::NewCurrent;
                     } else {
-                        return Err(Error::InvalidLabelCharacter);
+                        return Err(ErrorKind::InvalidLabelCharacter.into());
                     }
                 } else if state == FwStat::Ordinary {
                     if downcase {
@@ -356,7 +356,7 @@ fn string_parse(name_raw: &[u8],
                         break;
                     }
                     if new_current >= biggest_pointer {
-                        return Err(Error::BadCompressPointer);
+                        return Err(ErrorKind::BadCompressPointer.into());
                     }
                     biggest_pointer = new_current;
                     current = new_current;
@@ -367,7 +367,7 @@ fn string_parse(name_raw: &[u8],
             }
 
             if done == false {
-                return Err(Error::InCompleteName);
+                return Err(ErrorKind::InCompleteName.into());
             }
 
             buf.set_position(pos_beg + cused);
@@ -527,7 +527,7 @@ fn string_parse(name_raw: &[u8],
             }
         }
 
-        pub fn concat_all(&self, suffixes: &[&Name]) -> Result<Name, &'static str> {
+        pub fn concat_all(&self, suffixes: &[&Name]) -> Result<Name> {
             let mut final_length = self.length;
             let mut final_label_count = self.label_count;
             let suffix_count = suffixes.len();
@@ -537,9 +537,9 @@ fn string_parse(name_raw: &[u8],
             }
 
             if (final_length as usize) > MAX_WIRE_LEN {
-                return Err("names are too long to concat");
+                return Err(ErrorKind::TooLongName.into());
             } else if final_label_count > MAX_LABEL_COUNT {
-                return Err("names has too many labels to concat");
+                return Err(ErrorKind::TooLongLabel.into());
             }
 
             let mut raw = Vec::with_capacity(final_length as usize);
@@ -570,7 +570,7 @@ fn string_parse(name_raw: &[u8],
         }
 
 
-        pub fn concat(&self, suffix: &Name) -> Result<Name, &'static str> {
+        pub fn concat(&self, suffix: &Name) -> Result<Name> {
             return self.concat_all(&[suffix])
         }
 
@@ -603,11 +603,15 @@ fn string_parse(name_raw: &[u8],
         }
 
 
-        pub fn split(&self, start_label: usize, label_count: usize) -> Result<Name, &'static str> {
-            if label_count == 0 || label_count > (self.label_count as usize) ||
-                start_label + label_count > (self.label_count as usize) {
-                    return Err("split range isn't valid");
-                }
+        pub fn split(&self, start_label: usize, label_count_: usize) -> Result<Name> {
+            let max_label_count = self.label_count as usize;
+            if start_label >= max_label_count {
+                return Err(ErrorKind::InvalidLabelIndex.into());
+            }
+            let mut label_count = label_count_;
+            if start_label + label_count > max_label_count {
+                label_count = max_label_count - start_label;
+            }
 
             if start_label + label_count == (self.label_count as usize) {
                 let mut offsets = Vec::with_capacity(label_count);
@@ -646,7 +650,7 @@ fn string_parse(name_raw: &[u8],
             }
         }
 
-        pub fn parent(&self, level: usize) -> Result<Name, &'static str> {
+        pub fn parent(&self, level: usize) -> Result<Name> {
             self.split(level, self.label_count as usize - level)
         }
 
@@ -665,10 +669,8 @@ fn string_parse(name_raw: &[u8],
             }
         }
 
-        pub fn strip_left(&self, label_count: usize) -> Result<Name, &'static str> {
-            if label_count >= (self.label_count as usize) {
-                return Err("strip too many labels");
-            }
+        pub fn strip_left(&self, label_count: usize) -> Result<Name> {
+            assert!(label_count < (self.label_count as usize));
 
             if label_count == 0 {
                 return Ok(self.clone());
@@ -701,10 +703,8 @@ fn string_parse(name_raw: &[u8],
             };
         }
 
-        pub fn strip_right(&self, label_count: usize) -> Result<Name, &'static str> {
-            if label_count >= self.label_count as usize {
-                return Err("strip too many labels");
-            }
+        pub fn strip_right(&self, label_count: usize) -> Result<Name> {
+            assert!(label_count < self.label_count as usize);
 
             if label_count == 0 {
                 return Ok(self.clone());

@@ -34,9 +34,9 @@ impl<'a> InputBuffer<'a> {
         self.pos = p;
     }
 
-    pub fn read_u8(&mut self) -> Result<u8, Error> {
+    pub fn read_u8(&mut self) -> Result<u8> {
         if self.pos + 1 > self.datalen {
-            return Err(Error::InCompleteWire);
+            return Err(ErrorKind::InCompleteWire.into());
         }
 
         let num = self.data[self.pos];
@@ -44,9 +44,9 @@ impl<'a> InputBuffer<'a> {
         Ok(num)
     }
 
-    pub fn read_u16(&mut self) -> Result<u16, Error> {
+    pub fn read_u16(&mut self) -> Result<u16> {
         if self.pos + 2 > self.datalen {
-            return Err(Error::InCompleteWire);
+            return Err(ErrorKind::InCompleteWire.into());
         }
 
         let mut num = (self.data[self.pos] as u16) << 8;
@@ -55,9 +55,9 @@ impl<'a> InputBuffer<'a> {
         Ok(num)
     }
 
-    pub fn read_u32(&mut self) -> Result<u32, Error> {
+    pub fn read_u32(&mut self) -> Result<u32> {
         if self.pos + 4 > self.datalen {
-            return Err(Error::InCompleteWire);
+            return Err(ErrorKind::InCompleteWire.into());
         }
 
         let mut num = (self.data[self.pos] as u32) << 24;
@@ -68,9 +68,9 @@ impl<'a> InputBuffer<'a> {
         Ok(num)
     }
 
-    pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], Error> {
+    pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8]> {
         if self.pos + len > self.datalen {
-            return Err(Error::InCompleteWire);
+            return Err(ErrorKind::InCompleteWire.into());
         }
 
         let pos = self.pos;

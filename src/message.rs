@@ -1,6 +1,6 @@
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
-use super::error::Error;
+use super::error::*;
 use super::name::Name;
 use super::rr_class::RRClass;
 use super::header_flag::HeaderFlag;
@@ -33,7 +33,7 @@ impl Section {
         }
     }
 
-    pub fn from_wire(buf: &mut InputBuffer, rr_count: u16) -> Result<Self, Error> {
+    pub fn from_wire(buf: &mut InputBuffer, rr_count: u16) -> Result<Self> {
         if rr_count == 0 {
             return Ok(Section(None));
         }
@@ -104,10 +104,10 @@ impl Message {
         }
     }
 
-    pub fn from_wire(buf: &mut InputBuffer) -> Result<Self, Error> {
+    pub fn from_wire(buf: &mut InputBuffer) -> Result<Self> {
         let header = Header::from_wire(buf)?;
         if header.qd_count != 1 {
-            return Err(Error::ShortOfQuestion);
+            return Err(ErrorKind::ShortOfQuestion.into());
         }
 
         let question = Question::from_wire(buf)?;

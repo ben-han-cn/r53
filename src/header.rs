@@ -34,8 +34,8 @@ impl Header {
         Ok(Header {
             id: id,
             flag: flag & HEADERFLAG_MASK,
-            opcode: Opcode::new((((flag & OPCODE_MASK) >> OPCODE_SHIFT) as u8)),
-            rcode: Rcode::new(((flag & RCODE_MASK) as u8)),
+            opcode: Opcode::new(((flag & OPCODE_MASK) >> OPCODE_SHIFT) as u8),
+            rcode: Rcode::new((flag & RCODE_MASK) as u8),
             qd_count: qd_count,
             an_count: an_count,
             ns_count: ns_count,
