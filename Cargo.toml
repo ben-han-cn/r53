@@ -5,6 +5,7 @@ authors = ["hanfeng <ben.han.cn@gmail.com>"]
 
 [dependencies]
 error-chain = { version = "0.12", default-features = false }
+clap = { version = "2.32", default-features = false}
 
 [lib]
 name = "r53"

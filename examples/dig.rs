@@ -1,24 +1,59 @@
 use std::net::{SocketAddrV4, UdpSocket};
-use std::env;
 
 extern crate r53;
+extern crate clap;
+
+use clap::{App, Arg};
 use r53::{Name, Message, RRType, MessageRender, InputBuffer};
 
 
 fn main() {
-    let server_addr = env::args().nth(1).unwrap_or(
-        "114.114.114.114:53".to_string(),
-    );
+    let matches = App::new("dig")
+        .arg(Arg::with_name("port")
+             .help("target port")
+             .short("p")
+             .long("port")
+             .takes_value(true))
+        .arg(Arg::with_name("server")
+             .help("server to send query")
+             .value_name("SERVER")
+             .required(true)
+             .index(1))
+        .arg(Arg::with_name("qname")
+             .help("domain to query")
+             .value_name("DOMAIN")
+             .required(true)
+             .index(2))
+        .arg(Arg::with_name("qtype")
+             .help("type to query")
+             .value_name("TYPE")
+             .index(3))
+        .get_matches();
+
+    let mut server_addr = matches.value_of("server").unwrap().to_string();
+    let port = match matches.value_of("port") {
+        Some(p) => p.as_ref(),
+        None => "53",
+    };
+    if server_addr.starts_with("@") == false {
+        println!("server address isn't start with @");
+        return;
+    }
+    server_addr.remove(0);
+    server_addr.push_str(":");
+    server_addr.push_str(port);
     let server_addr = server_addr.parse::<SocketAddrV4>().unwrap();
 
     let socket = UdpSocket::bind("0.0.0.0:0".parse::<SocketAddrV4>().unwrap())
         .expect("bind udp socket failed");
 
+    let name = matches.value_of("qname").unwrap();
+    let name = Name::new(name, true).unwrap();
 
-    let name = env::args().nth(2).unwrap_or("www.knet.cn".to_string());
-    let name = Name::new(name.as_str(), true).unwrap();
-
-    let qtype = env::args().nth(3).unwrap_or("a".to_string());
+    let qtype = match matches.value_of("qtype") {
+        Some(t) => t.as_ref(),
+        None => "a",
+    };
     let qtype = RRType::from_string(qtype.as_ref()).expect("unknown qtype");
 
     let query = Message::with_query(name, qtype);
