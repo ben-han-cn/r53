@@ -1,6 +1,6 @@
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
-use super::error::Error;
+use error::Error;
 use name::Name;
 use rr_type::RRType;
 use rr_class::RRClass;

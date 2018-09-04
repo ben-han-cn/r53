@@ -1,6 +1,6 @@
 use std::fmt;
 use std::cmp;
-use super::error::*;
+use error::*;
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
 

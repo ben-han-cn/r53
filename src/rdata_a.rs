@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
-use super::error::*;
+use error::*;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct A {

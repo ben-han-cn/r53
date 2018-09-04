@@ -2,7 +2,7 @@ use std::fmt;
 
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
-use super::error::Error;
+use error::Error;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]

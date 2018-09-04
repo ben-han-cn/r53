@@ -1,7 +1,7 @@
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
 use rr_type::RRType;
-use super::error::*;
+use error::*;
 use rdata_a;
 use rdata_ns;
 use rdata_aaaa;

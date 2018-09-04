@@ -1,9 +1,9 @@
 use util::{InputBuffer, OutputBuffer};
 use message_render::MessageRender;
-use super::error::*;
-use super::name::Name;
-use super::rr_class::RRClass;
-use super::header_flag::HeaderFlag;
+use error::*;
+use name::Name;
+use rr_class::RRClass;
+use header_flag::HeaderFlag;
 use rrset::RRset;
 use rr_type::RRType;
 use header::Header;
