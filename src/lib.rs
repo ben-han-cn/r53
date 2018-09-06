@@ -26,6 +26,7 @@ pub mod rrset;
 pub mod question;
 pub mod edns;
 pub mod message;
+pub mod message_builder;
 
 pub use rcode::Rcode;
 pub use opcode::Opcode;
@@ -51,3 +52,4 @@ pub use rdata_naptr::NAPTR;
 pub use rdata_dname::DName;
 pub use rdata_opt::OPT;
 pub use rdata_ptr::PTR;
+pub use message_builder::MessageBuilder;

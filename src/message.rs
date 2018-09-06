@@ -11,6 +11,7 @@ use question::Question;
 use std::fmt::Write;
 use edns::Edns;
 
+#[derive(Copy, Clone)]
 pub enum SectionType {
     Answer = 0,
     Auth = 1,
@@ -18,7 +19,7 @@ pub enum SectionType {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Section(Option<Vec<RRset>>);
+pub struct Section(pub Option<Vec<RRset>>);
 
 impl Section {
     fn rr_count(&self) -> usize {
@@ -218,69 +219,54 @@ mod test {
     use super::super::rdata::RData;
     use super::super::rr_class::RRClass;
     use super::super::rr_type::RRType;
+    use super::super::message_builder::MessageBuilder;
 
     fn build_desired_message()-> Message {
-        let mut header = Header {
-            id: 1200,
-            flag: 0,
-            opcode: Opcode::Query,
-            rcode: Rcode::NoError,
-            qd_count: 1,
-            an_count: 2,
-            ns_count: 1,
-            ar_count: 2,
-        };
-        header.set_flag(HeaderFlag::QueryRespone, true);
-        header.set_flag(HeaderFlag::AuthAnswer, true);
-        header.set_flag(HeaderFlag::RecursionDesired, true);
-
-        let question = Question {
-            name: Name::new("test.example.com.", false).unwrap(),
-            typ: RRType::A,
-            class: RRClass::IN,
-        };
-
-        let mut answer = Vec::with_capacity(1);
-        answer.push(RRset {
-            name: Name::new("test.example.com.", false).unwrap(),
-            typ: RRType::A,
-            class: RRClass::IN,
-            ttl: RRTtl(3600),
-            rdatas: [RData::A(A::from_string("192.0.2.2").unwrap()), RData::A(A::from_string("192.0.2.1").unwrap())].to_vec(),
-        });
-
-        let mut auth = Vec::with_capacity(1);
-        auth.push(RRset {
-            name: Name::new("example.com.", false).unwrap(),
-            typ: RRType::NS,
-            class: RRClass::IN,
-            ttl: RRTtl(3600),
-            rdatas: [RData::NS(Box::new(NS::from_string("ns1.example.com.").unwrap()))].to_vec(),
-        });
-
-        let mut additional = Vec::with_capacity(1);
-        additional.push(RRset {
-            name: Name::new("ns1.example.com.", false).unwrap(),
-            typ: RRType::A,
-            class: RRClass::IN,
-            ttl: RRTtl(3600),
-            rdatas: [RData::A(A::from_string("2.2.2.2").unwrap())].to_vec(),
-        });
-
-        let edns = Edns {
-            versoin: 0,
-            extened_rcode: 0,
-            udp_size: 4096,
-            dnssec_aware: false,
-            options: None,
-        };
-
-        Message {
-            header: header,
-            question: question,
-            sections: [Section(Some(answer)), Section(Some(auth)), Section(Some(additional))],
-            edns: Some(edns),
+        let mut msg = Message::with_query(Name::new("test.example.com.", false).unwrap(),
+        RRType::A);
+        {
+            let mut builder = MessageBuilder::new(&mut msg); 
+            builder.id(1200)
+                .opcode(Opcode::Query)
+                .rcode(Rcode::NoError)
+                .set_flag(HeaderFlag::QueryRespone)
+                .set_flag(HeaderFlag::AuthAnswer)
+                .set_flag(HeaderFlag::RecursionDesired)
+                .add_answer(
+                    RRset {
+                        name: Name::new("test.example.com.", false).unwrap(),
+                        typ: RRType::A,
+                        class: RRClass::IN,
+                        ttl: RRTtl(3600),
+                        rdatas: [RData::A(A::from_string("192.0.2.2").unwrap()), RData::A(A::from_string("192.0.2.1").unwrap())].to_vec(),
+                    })
+            .add_auth(
+                RRset {
+                    name: Name::new("example.com.", false).unwrap(),
+                    typ: RRType::NS,
+                    class: RRClass::IN,
+                    ttl: RRTtl(3600),
+                    rdatas: [RData::NS(Box::new(NS::from_string("ns1.example.com.").unwrap()))].to_vec(),
+                })
+            .add_additional(
+                RRset {
+                    name: Name::new("ns1.example.com.", false).unwrap(),
+                    typ: RRType::A,
+                    class: RRClass::IN,
+                    ttl: RRTtl(3600),
+                    rdatas: [RData::A(A::from_string("2.2.2.2").unwrap())].to_vec(),
+                })
+            .edns(
+                Edns {
+                    versoin: 0,
+                    extened_rcode: 0,
+                    udp_size: 4096,
+                    dnssec_aware: false,
+                    options: None,
+                })
+            .done();
         }
+        msg
     }
 
     #[test]

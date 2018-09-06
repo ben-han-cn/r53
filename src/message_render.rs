@@ -129,7 +129,6 @@ impl MessageRender {
         render
     }
 
-
     pub fn is_trancated(&self) -> bool {
         self.truncated
     }
