@@ -37,7 +37,6 @@ pub use message_render::MessageRender;
 pub use message::Message;
 pub use header::Header;
 pub use rr_type::RRType;
-pub use util::InputBuffer;
 pub use rrset::RRset;
 pub use rr_class::RRClass;
 pub use rrset::RRTtl;

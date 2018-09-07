@@ -105,7 +105,8 @@ impl Message {
         }
     }
 
-    pub fn from_wire(buf: &mut InputBuffer) -> Result<Self> {
+    pub fn from_wire(raw: &[u8]) -> Result<Self> {
+        let ref mut buf = InputBuffer::new(raw);
         let header = Header::from_wire(buf)?;
         if header.qd_count != 1 {
             return Err(ErrorKind::ShortOfQuestion.into());
@@ -213,7 +214,6 @@ mod test {
     use super::super::opcode::Opcode;
     use super::super::name::Name;
     use super::super::rcode::Rcode;
-    use super::super::util::InputBuffer;
     use super::super::header_flag::HeaderFlag;
     use super::super::rrset::RRTtl;
     use super::super::rdata::RData;
@@ -275,8 +275,7 @@ mod test {
             from_hex("04b0850000010002000100020474657374076578616d706c6503636f6d0000010001c00c0001000100000e10000
                      4c0000202c00c0001000100000e100004c0000201c0110002000100000e100006036e7331c011c04e0001000100000e100004020202020000
                      291000000000000000").unwrap();
-        let mut buf = InputBuffer::new(raw.as_slice());
-        let message = Message::from_wire(&mut buf).unwrap();
+        let message = Message::from_wire(raw.as_slice()).unwrap();
         let desired_message = build_desired_message();
         assert_eq!(message, desired_message);
 

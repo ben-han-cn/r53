@@ -4,7 +4,7 @@ extern crate r53;
 extern crate clap;
 
 use clap::{App, Arg};
-use r53::{Name, Message, RRType, MessageRender, InputBuffer};
+use r53::{Name, Message, RRType, MessageRender};
 
 
 fn main() {
@@ -63,6 +63,6 @@ fn main() {
 
     let mut buf = [0; 512];
     socket.recv_from(&mut buf).unwrap();
-    let response = Message::from_wire(&mut InputBuffer::new(&buf)).unwrap();
+    let response = Message::from_wire(&buf).unwrap();
     println!("get response: {}", response.to_string());
 }
