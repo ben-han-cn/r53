@@ -234,6 +234,10 @@ impl MessageRender {
         self.buffer.data()
     }
 
+    pub fn take_data(&mut self) -> Vec<u8> {
+        self.buffer.take_data()
+    }
+
     pub fn len(&self) -> usize {
         self.buffer.len()
     }

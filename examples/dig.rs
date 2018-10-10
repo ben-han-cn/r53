@@ -46,6 +46,7 @@ fn main() {
 
     let socket = UdpSocket::bind("0.0.0.0:0".parse::<SocketAddrV4>().unwrap())
         .expect("bind udp socket failed");
+    socket.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
 
     let name = matches.value_of("qname").unwrap();
     let name = Name::new(name, true).unwrap();
@@ -62,7 +63,11 @@ fn main() {
     socket.send_to(render.data(), server_addr).unwrap();
 
     let mut buf = [0; 512];
-    socket.recv_from(&mut buf).unwrap();
-    let response = Message::from_wire(&buf).unwrap();
-    println!("get response: {}", response.to_string());
+    match socket.recv_from(&mut buf) {
+        Ok((len, _)) if len > 0 => { 
+            let response = Message::from_wire(&buf).unwrap();
+            println!("get response: {}", response.to_string());
+        },
+        _ => println!("timeout"),
+    }
 }

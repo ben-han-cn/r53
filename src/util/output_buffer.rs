@@ -1,3 +1,5 @@
+use std::mem;
+
 pub struct OutputBuffer {
     data: Vec<u8>,
 }
@@ -17,6 +19,10 @@ impl OutputBuffer {
 
     pub fn data(&self) -> &[u8] {
         self.data.as_slice()
+    }
+
+    pub fn take_data(&mut self) -> Vec<u8> {
+        mem::replace(&mut self.data, Vec::new())
     }
 
     pub fn at(&self, pos: usize) -> u8 {
