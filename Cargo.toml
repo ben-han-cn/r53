@@ -10,7 +10,3 @@ clap = { version = "2.32", default-features = false}
 [lib]
 name = "r53"
 path = "src/lib.rs"
-
-[[bin]]
-name = "dig"
-path = "examples/dig.rs"

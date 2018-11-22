@@ -23,12 +23,11 @@ pub struct Section(pub Option<Vec<RRset>>);
 
 impl Section {
     fn rr_count(&self) -> usize {
-        match self.0 {
-            Some(ref rrsets) => rrsets
+        self.0.as_ref().map_or(0, |rrsets| {
+            rrsets
                 .iter()
-                .fold(0, |count, ref rrset| count + rrset.rr_count()),
-            None => 0,
-        }
+                .fold(0, |count, ref rrset| count + rrset.rr_count())
+        })
     }
 
     pub fn from_wire(buf: &mut InputBuffer, rr_count: u16) -> Result<Self> {
@@ -52,29 +51,24 @@ impl Section {
     }
 
     pub fn rend(&self, render: &mut MessageRender) {
-        if let Some(ref rrsets) = self.0 {
-            for rrset in rrsets {
-                rrset.rend(render);
-            }
-        }
+        self.0.as_ref().map(|rrsets| {
+            rrsets.iter().for_each(|rrset| rrset.rend(render));
+        });
     }
 
     pub fn to_wire(&self, buf: &mut OutputBuffer) {
-        if let Some(ref rrsets) = self.0 {
-            for rrset in rrsets {
-                rrset.to_wire(buf);
-            }
-        }
+        self.0.as_ref().map(|rrsets| {
+            rrsets.iter().for_each(|rrset| rrset.to_wire(buf));
+        });
     }
 
     pub fn to_string(&self) -> String {
-        let mut rrset_str = String::new();
-        if let Some(ref rrsets) = self.0 {
-            for rrset in rrsets {
-                write!(rrset_str, "{}", rrset.to_string()).unwrap();
-            }
-        }
-        rrset_str
+        self.0.as_ref().map_or(String::new(), |rrsets| {
+            rrsets.iter().fold(String::new(), |mut out, ref rrset| {
+                write!(out, "{}", rrset.to_string()).unwrap();
+                out
+            })
+        })
     }
 }
 
@@ -135,9 +129,7 @@ impl Message {
         self.header.an_count = self.sections[0].rr_count() as u16;
         self.header.ns_count = self.sections[1].rr_count() as u16;
         self.header.ar_count = self.sections[2].rr_count() as u16;
-        if let Some(ref edns) = self.edns {
-            self.header.ar_count += edns.rr_count() as u16;
-        }
+        self.header.ar_count += self.edns.as_ref().map_or(0, |edns| edns.rr_count() as u16);
     }
 
     pub fn rend(&self, render: &mut MessageRender) {
@@ -146,9 +138,7 @@ impl Message {
         self.sections
             .iter()
             .for_each(|section| section.rend(render));
-        if let Some(ref edns) = self.edns {
-            edns.rend(render);
-        }
+        self.edns.as_ref().map(|edns| edns.rend(render));
     }
 
     pub fn to_wire(&self, buf: &mut OutputBuffer) {
@@ -157,17 +147,15 @@ impl Message {
         self.sections
             .iter()
             .for_each(|section| section.to_wire(buf));
-        if let Some(ref edns) = self.edns {
-            edns.to_wire(buf);
-        }
+        self.edns.as_ref().map(|edns| edns.to_wire(buf));
     }
 
     pub fn to_string(&self) -> String {
         let mut message_str = String::new();
         write!(message_str, "{}", self.header.to_string()).unwrap();
-        if let Some(ref edns) = self.edns {
+        self.edns.as_ref().map(|edns| {
             write!(message_str, ";; OPT PSEUDOSECTION:\n{}", edns.to_string()).unwrap();
-        }
+        });
 
         write!(
             message_str,
