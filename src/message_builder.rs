@@ -1,9 +1,9 @@
-use message::{Message, Section, SectionType};
-use rrset::RRset;
+use edns::Edns;
 use header_flag::HeaderFlag;
+use message::{Message, Section, SectionType};
 use opcode::Opcode;
 use rcode::Rcode;
-use edns::Edns;
+use rrset::RRset;
 
 pub struct MessageBuilder<'a> {
     msg: &'a mut Message,
@@ -11,9 +11,7 @@ pub struct MessageBuilder<'a> {
 
 impl<'a> MessageBuilder<'a> {
     pub fn new(msg: &'a mut Message) -> Self {
-        MessageBuilder {
-            msg: msg,
-        }
+        MessageBuilder { msg: msg }
     }
 
     pub fn id(&mut self, id: u16) -> &mut Self {
@@ -37,7 +35,7 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn rcode(&mut self, rcode: Rcode) -> &mut Self {
-        self.msg.header.rcode= rcode;
+        self.msg.header.rcode = rcode;
         self
     }
 
@@ -63,10 +61,10 @@ impl<'a> MessageBuilder<'a> {
     }
 
     fn add_rrset_to_section(&mut self, section: SectionType, rrset: RRset) -> &mut Self {
-        if let Some(ref mut rrsets) = self.msg.sections[section as usize].0{
+        if let Some(ref mut rrsets) = self.msg.sections[section as usize].0 {
             rrsets.push(rrset);
         } else {
-            self.msg.sections[section as usize] = Section(Some(vec!(rrset)));
+            self.msg.sections[section as usize] = Section(Some(vec![rrset]));
         }
         self
     }

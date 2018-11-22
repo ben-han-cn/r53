@@ -16,8 +16,6 @@ pub enum Rcode {
     Reserved,
 }
 
-
-
 impl Rcode {
     pub fn new(value: u8) -> Self {
         match value {

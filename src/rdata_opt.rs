@@ -1,7 +1,7 @@
-use util::{InputBuffer, OutputBuffer};
-use util::hex::to_hex;
-use message_render::MessageRender;
 use error::Error;
+use message_render::MessageRender;
+use util::hex::to_hex;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct OPT {
@@ -10,8 +10,8 @@ pub struct OPT {
 
 impl OPT {
     pub fn from_wire(buf: &mut InputBuffer, len: u16) -> Result<Self, Error> {
-        buf.read_bytes(len as usize).map(|data| {
-            OPT { data: data.to_vec() }
+        buf.read_bytes(len as usize).map(|data| OPT {
+            data: data.to_vec(),
         })
     }
 

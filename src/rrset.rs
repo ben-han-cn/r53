@@ -1,15 +1,14 @@
-use util::{InputBuffer, OutputBuffer};
-use message_render::MessageRender;
 use error::Error;
+use message_render::MessageRender;
 use name::Name;
-use rr_type::RRType;
-use rr_class::RRClass;
 use rdata::RData;
+use rr_class::RRClass;
+use rr_type::RRType;
 use std::fmt::Write;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct RRTtl(pub u32);
-
 
 impl RRTtl {
     pub fn from_wire(buf: &mut InputBuffer) -> Result<Self, Error> {
@@ -29,7 +28,6 @@ impl RRTtl {
     }
 }
 
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RRset {
     pub name: Name,
@@ -38,7 +36,6 @@ pub struct RRset {
     pub ttl: RRTtl,
     pub rdatas: Vec<RData>,
 }
-
 
 impl RRset {
     pub fn from_wire(buf: &mut InputBuffer) -> Result<Self, Error> {
@@ -119,7 +116,8 @@ impl RRset {
             self.ttl.to_string(),
             self.class.to_string(),
             self.typ.to_string(),
-        ].join("\t")
+        ]
+            .join("\t")
     }
 
     pub fn rr_count(&self) -> usize {
@@ -131,18 +129,16 @@ impl RRset {
     }
 }
 
-
 #[cfg(test)]
 mod test {
+    use super::super::rdata_a::A;
     use super::*;
     use util::hex::from_hex;
-    use super::super::rdata_a::A;
 
     #[test]
     fn test_rrset_to_wire() {
-        let raw = from_hex(
-            "0474657374076578616d706c6503636f6d000001000100000e100004c0000201",
-        ).unwrap();
+        let raw =
+            from_hex("0474657374076578616d706c6503636f6d000001000100000e100004c0000201").unwrap();
         let mut buf = InputBuffer::new(raw.as_slice());
         let rrset = RRset::from_wire(&mut buf).unwrap();
         let desired_rrset = RRset {

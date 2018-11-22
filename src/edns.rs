@@ -1,9 +1,9 @@
-use util::OutputBuffer;
 use message_render::MessageRender;
-use rrset::{RRset, RRTtl};
-use rr_type::RRType;
 use rr_class::RRClass;
+use rr_type::RRType;
+use rrset::{RRTtl, RRset};
 use std::fmt::Write;
+use util::OutputBuffer;
 
 const VERSION_SHIFT: u32 = 16;
 const EXTRCODE_SHIFT: u32 = 24;
@@ -82,12 +82,11 @@ impl Edns {
     }
 }
 
-
 #[cfg(test)]
 mod test {
+    use super::super::util::InputBuffer;
     use super::*;
     use util::hex::from_hex;
-    use super::super::util::InputBuffer;
 
     #[test]
     fn test_edns_to_wire() {

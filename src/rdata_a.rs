@@ -1,8 +1,8 @@
 use std::net::Ipv4Addr;
 
-use util::{InputBuffer, OutputBuffer};
-use message_render::MessageRender;
 use error::*;
+use message_render::MessageRender;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct A {
@@ -10,9 +10,8 @@ pub struct A {
 }
 
 fn get_ipv4_addr(buf: &mut InputBuffer) -> Result<Ipv4Addr> {
-    buf.read_bytes(4).map(|bytes| {
-        Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3])
-    })
+    buf.read_bytes(4)
+        .map(|bytes| Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]))
 }
 
 impl A {
@@ -22,8 +21,8 @@ impl A {
 
     pub fn from_string(ip_str: &str) -> Result<Self> {
         match ip_str.parse() {
-            Ok(ip) => Ok(A{host: ip}),
-            Err(_) => Err(ErrorKind::InvalidIPv4Address.into())
+            Ok(ip) => Ok(A { host: ip }),
+            Err(_) => Err(ErrorKind::InvalidIPv4Address.into()),
         }
     }
 

@@ -1,7 +1,7 @@
-use util::{InputBuffer, OutputBuffer};
+use error::Error;
 use message_render::MessageRender;
 use name::Name;
-use error::Error;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SOA {
@@ -55,13 +55,16 @@ impl SOA {
     }
 
     pub fn to_string(&self) -> String {
-        [self.mname.to_string(),
-        self.rname.to_string(),
-        self.serial.to_string(),
-        self.refresh.to_string(),
-        self.retry.to_string(),
-        self.expire.to_string(),
-        self.minimum.to_string()].join(" ")
+        [
+            self.mname.to_string(),
+            self.rname.to_string(),
+            self.serial.to_string(),
+            self.refresh.to_string(),
+            self.retry.to_string(),
+            self.expire.to_string(),
+            self.minimum.to_string(),
+        ]
+            .join(" ")
     }
 }
 
@@ -86,11 +89,13 @@ mod test {
         assert_eq!(soa.expire, 3600000);
         assert_eq!(soa.minimum, 1200);
 
-
         let mut render = MessageRender::new();
         render.write_u16(raw_len);
         soa.rend(&mut render);
         assert_eq!(raw.as_slice(), render.data());
-        assert_eq!(soa.to_string(), "ns.example.com. root.example.com. 2010012601 3600 300 3600000 1200");
+        assert_eq!(
+            soa.to_string(),
+            "ns.example.com. root.example.com. 2010012601 3600 300 3600000 1200"
+        );
     }
 }

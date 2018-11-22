@@ -1,7 +1,7 @@
+use error::Error;
+use message_render::MessageRender;
 use std::fmt;
 use util::{InputBuffer, OutputBuffer};
-use message_render::MessageRender;
-use error::Error;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -30,8 +30,6 @@ pub enum RRType {
     ANY,
     Unknown(u16),
 }
-
-
 
 impl RRType {
     pub fn new(value: u16) -> Self {

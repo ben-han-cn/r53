@@ -1,17 +1,17 @@
-use util::{InputBuffer, OutputBuffer};
-use message_render::MessageRender;
-use rr_type::RRType;
 use error::*;
+use message_render::MessageRender;
 use rdata_a;
-use rdata_ns;
 use rdata_aaaa;
 use rdata_cname;
-use rdata_soa;
-use rdata_ptr;
+use rdata_dname;
 use rdata_mx;
 use rdata_naptr;
-use rdata_dname;
+use rdata_ns;
 use rdata_opt;
+use rdata_ptr;
+use rdata_soa;
+use rr_type::RRType;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RData {

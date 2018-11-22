@@ -28,8 +28,6 @@ pub fn from_hex(hex_str: &str) -> Option<Vec<u8>> {
     }
 }
 
-
-
 static CHARS: &'static [u8] = b"0123456789abcdef";
 pub fn to_hex(data: &Vec<u8>) -> String {
     let mut v = Vec::with_capacity(data.len() * 2);
@@ -40,7 +38,6 @@ pub fn to_hex(data: &Vec<u8>) -> String {
 
     unsafe { String::from_utf8_unchecked(v) }
 }
-
 
 #[cfg(test)]
 mod test {

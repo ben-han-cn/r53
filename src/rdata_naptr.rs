@@ -1,7 +1,7 @@
-use util::{InputBuffer, OutputBuffer};
+use error::Error;
 use message_render::MessageRender;
 use name::Name;
-use error::Error;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct NAPTR {
@@ -51,7 +51,8 @@ impl NAPTR {
             self.flags.to_string(),
             self.services.to_string(),
             self.replacement.to_string(),
-        ].join(" ")
+        ]
+            .join(" ")
     }
 }
 

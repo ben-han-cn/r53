@@ -1,10 +1,10 @@
+use error::Error;
+use header_flag::{clear_flag, set_flag, setted_flags, HeaderFlag};
+use message_render::MessageRender;
 use opcode::Opcode;
 use rcode::Rcode;
-use header_flag::{HeaderFlag, set_flag, clear_flag, setted_flags};
-use util::{InputBuffer, OutputBuffer};
-use error::Error;
-use message_render::MessageRender;
 use std::fmt::Write;
+use util::{InputBuffer, OutputBuffer};
 
 const HEADERFLAG_MASK: u16 = 0x87b0;
 const OPCODE_MASK: u16 = 0x7800;

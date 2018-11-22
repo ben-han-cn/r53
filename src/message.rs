@@ -1,15 +1,15 @@
-use util::{InputBuffer, OutputBuffer};
-use message_render::MessageRender;
-use error::*;
-use name::Name;
-use rr_class::RRClass;
-use header_flag::HeaderFlag;
-use rrset::RRset;
-use rr_type::RRType;
-use header::Header;
-use question::Question;
-use std::fmt::Write;
 use edns::Edns;
+use error::*;
+use header::Header;
+use header_flag::HeaderFlag;
+use message_render::MessageRender;
+use name::Name;
+use question::Question;
+use rr_class::RRClass;
+use rr_type::RRType;
+use rrset::RRset;
+use std::fmt::Write;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Copy, Clone)]
 pub enum SectionType {
@@ -24,12 +24,9 @@ pub struct Section(pub Option<Vec<RRset>>);
 impl Section {
     fn rr_count(&self) -> usize {
         match self.0 {
-            Some(ref rrsets) => {
-                rrsets.iter().fold(
-                    0,
-                    |count, ref rrset| count + rrset.rr_count(),
-                    )
-            }
+            Some(ref rrsets) => rrsets
+                .iter()
+                .fold(0, |count, ref rrset| count + rrset.rr_count()),
             None => 0,
         }
     }
@@ -93,7 +90,7 @@ impl Message {
     pub fn with_query(name: Name, qtype: RRType) -> Self {
         let mut header: Header = Default::default();
         header.set_flag(HeaderFlag::RecursionDesired, true);
-        return Message{
+        return Message {
             header: header,
             question: Question {
                 name: name,
@@ -102,7 +99,7 @@ impl Message {
             },
             sections: [Section(None), Section(None), Section(None)],
             edns: None,
-        }
+        };
     }
 
     pub fn from_wire(raw: &[u8]) -> Result<Self> {
@@ -146,9 +143,9 @@ impl Message {
     pub fn rend(&self, render: &mut MessageRender) {
         self.header.rend(render);
         self.question.rend(render);
-        self.sections.iter().for_each(
-            |section| section.rend(render),
-            );
+        self.sections
+            .iter()
+            .for_each(|section| section.rend(render));
         if let Some(ref edns) = self.edns {
             edns.rend(render);
         }
@@ -157,9 +154,9 @@ impl Message {
     pub fn to_wire(&self, buf: &mut OutputBuffer) {
         self.header.to_wire(buf);
         self.question.to_wire(buf);
-        self.sections.iter().for_each(
-            |section| section.to_wire(buf),
-            );
+        self.sections
+            .iter()
+            .for_each(|section| section.to_wire(buf));
         if let Some(ref edns) = self.edns {
             edns.to_wire(buf);
         }
@@ -176,14 +173,14 @@ impl Message {
             message_str,
             ";; QUESTION SECTION:\n{}\n",
             self.question.to_string()
-            ).unwrap();
+        ).unwrap();
 
         if self.header.an_count > 0 {
             write!(
                 message_str,
                 "\n;; ANSWER SECTION:\n{}",
                 self.sections[0].to_string()
-                ).unwrap();
+            ).unwrap();
         }
 
         if self.header.ns_count > 0 {
@@ -191,7 +188,7 @@ impl Message {
                 message_str,
                 "\n;; AUTHORITY SECTION:\n{}",
                 self.sections[1].to_string()
-                ).unwrap();
+            ).unwrap();
         }
 
         if self.header.ar_count > 0 {
@@ -199,7 +196,7 @@ impl Message {
                 message_str,
                 "\n;; ADDITIONAL SECTION:\n{}",
                 self.sections[2].to_string()
-                ).unwrap();
+            ).unwrap();
         }
         message_str
     }
@@ -207,64 +204,64 @@ impl Message {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use util::hex::from_hex;
+    use super::super::header_flag::HeaderFlag;
+    use super::super::message_builder::MessageBuilder;
+    use super::super::name::Name;
+    use super::super::opcode::Opcode;
+    use super::super::rcode::Rcode;
+    use super::super::rdata::RData;
     use super::super::rdata_a::A;
     use super::super::rdata_ns::NS;
-    use super::super::opcode::Opcode;
-    use super::super::name::Name;
-    use super::super::rcode::Rcode;
-    use super::super::header_flag::HeaderFlag;
-    use super::super::rrset::RRTtl;
-    use super::super::rdata::RData;
     use super::super::rr_class::RRClass;
     use super::super::rr_type::RRType;
-    use super::super::message_builder::MessageBuilder;
+    use super::super::rrset::RRTtl;
+    use super::*;
+    use util::hex::from_hex;
 
-    fn build_desired_message()-> Message {
-        let mut msg = Message::with_query(Name::new("test.example.com.", false).unwrap(),
-        RRType::A);
+    fn build_desired_message() -> Message {
+        let mut msg =
+            Message::with_query(Name::new("test.example.com.", false).unwrap(), RRType::A);
         {
-            let mut builder = MessageBuilder::new(&mut msg); 
-            builder.id(1200)
+            let mut builder = MessageBuilder::new(&mut msg);
+            builder
+                .id(1200)
                 .opcode(Opcode::Query)
                 .rcode(Rcode::NoError)
                 .set_flag(HeaderFlag::QueryRespone)
                 .set_flag(HeaderFlag::AuthAnswer)
                 .set_flag(HeaderFlag::RecursionDesired)
-                .add_answer(
-                    RRset {
-                        name: Name::new("test.example.com.", false).unwrap(),
-                        typ: RRType::A,
-                        class: RRClass::IN,
-                        ttl: RRTtl(3600),
-                        rdatas: [RData::A(A::from_string("192.0.2.2").unwrap()), RData::A(A::from_string("192.0.2.1").unwrap())].to_vec(),
-                    })
-            .add_auth(
-                RRset {
+                .add_answer(RRset {
+                    name: Name::new("test.example.com.", false).unwrap(),
+                    typ: RRType::A,
+                    class: RRClass::IN,
+                    ttl: RRTtl(3600),
+                    rdatas: [
+                        RData::A(A::from_string("192.0.2.2").unwrap()),
+                        RData::A(A::from_string("192.0.2.1").unwrap()),
+                    ]
+                        .to_vec(),
+                }).add_auth(RRset {
                     name: Name::new("example.com.", false).unwrap(),
                     typ: RRType::NS,
                     class: RRClass::IN,
                     ttl: RRTtl(3600),
-                    rdatas: [RData::NS(Box::new(NS::from_string("ns1.example.com.").unwrap()))].to_vec(),
-                })
-            .add_additional(
-                RRset {
+                    rdatas: [RData::NS(Box::new(
+                        NS::from_string("ns1.example.com.").unwrap(),
+                    ))]
+                        .to_vec(),
+                }).add_additional(RRset {
                     name: Name::new("ns1.example.com.", false).unwrap(),
                     typ: RRType::A,
                     class: RRClass::IN,
                     ttl: RRTtl(3600),
                     rdatas: [RData::A(A::from_string("2.2.2.2").unwrap())].to_vec(),
-                })
-            .edns(
-                Edns {
+                }).edns(Edns {
                     versoin: 0,
                     extened_rcode: 0,
                     udp_size: 4096,
                     dnssec_aware: false,
                     options: None,
-                })
-            .done();
+                }).done();
         }
         msg
     }

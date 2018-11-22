@@ -1,9 +1,9 @@
-use util::{InputBuffer, OutputBuffer};
-use message_render::MessageRender;
 use error::Error;
+use message_render::MessageRender;
 use name::Name;
-use rr_type::RRType;
 use rr_class::RRClass;
+use rr_type::RRType;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Question {
@@ -41,7 +41,8 @@ impl Question {
             self.name.to_string(),
             self.class.to_string(),
             self.typ.to_string(),
-        ].join(" ")
+        ]
+            .join(" ")
     }
 }
 

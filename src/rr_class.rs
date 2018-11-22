@@ -1,8 +1,8 @@
 use std::fmt;
 
-use util::{InputBuffer, OutputBuffer};
-use message_render::MessageRender;
 use error::Error;
+use message_render::MessageRender;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
@@ -14,8 +14,6 @@ pub enum RRClass {
     ANY,
     Unknown(u16),
 }
-
-
 
 impl RRClass {
     pub fn new(value: u16) -> Self {

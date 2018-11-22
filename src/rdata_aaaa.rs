@@ -1,8 +1,8 @@
 use std::net::Ipv6Addr;
 
-use util::{InputBuffer, OutputBuffer};
-use message_render::MessageRender;
 use error::Error;
+use message_render::MessageRender;
+use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AAAA {
@@ -23,15 +23,17 @@ impl AAAA {
     }
 
     pub fn rend(&self, render: &mut MessageRender) {
-        self.host.octets().into_iter().for_each(
-            |x| render.write_u8(*x),
-        );
+        self.host
+            .octets()
+            .into_iter()
+            .for_each(|x| render.write_u8(*x));
     }
 
     pub fn to_wire(&self, buf: &mut OutputBuffer) {
-        self.host.octets().into_iter().for_each(
-            |x| buf.write_u8(*x),
-        );
+        self.host
+            .octets()
+            .into_iter()
+            .for_each(|x| buf.write_u8(*x));
     }
 
     pub fn to_string(&self) -> String {

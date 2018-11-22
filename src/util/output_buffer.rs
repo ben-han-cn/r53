@@ -6,7 +6,9 @@ pub struct OutputBuffer {
 
 impl OutputBuffer {
     pub fn new(len: usize) -> Self {
-        OutputBuffer { data: Vec::with_capacity(len) }
+        OutputBuffer {
+            data: Vec::with_capacity(len),
+        }
     }
 
     pub fn len(&self) -> usize {
