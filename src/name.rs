@@ -647,7 +647,7 @@ impl Name {
         self.split(level, self.label_count as usize - level)
     }
 
-    pub fn downcase(&mut self) {
+    pub fn to_lowercase(&mut self) {
         let mut label_count = self.label_count;
         let mut p: usize = 0;
         while label_count > 0 {
@@ -662,11 +662,11 @@ impl Name {
         }
     }
 
-    pub fn strip_left(&self, label_count: usize) -> Result<Name> {
+    pub fn strip_left(&self, label_count: usize) -> Name {
         assert!(label_count < (self.label_count as usize));
 
         if label_count == 0 {
-            return Ok(self.clone());
+            return self.clone();
         }
 
         let new_label_count = (self.label_count as usize) - label_count;
@@ -679,13 +679,34 @@ impl Name {
         let new_length = self.length as usize - start_pos;
         let mut raw = Vec::with_capacity(new_length);
         raw.extend_from_slice(&self.raw[start_pos..]);
-        Ok(Name {
+        Name {
             length: new_length as u8,
             label_count: new_label_count as u8,
             raw: raw,
             offsets: offsets,
-        })
+        }
     }
+
+    pub fn to_ancestor(mut self, label_count: usize) -> Name {
+        assert!(label_count < (self.label_count as usize));
+
+        if label_count == 0 {
+            return self;
+        }
+
+        let new_label_count = (self.label_count as usize) - label_count;
+        let start_pos = self.offsets[label_count] as usize;
+        self.offsets = self.offsets.split_off(label_count);
+        for i in 0..new_label_count {
+            self.offsets[i] -= start_pos as u8;
+        }
+        let new_length = self.length as usize - start_pos;
+        self.raw = self.raw.split_off(start_pos);
+        self.label_count = new_label_count as u8;
+        self.length = new_length as u8;
+        self
+    }
+
 
     pub fn clone(&self) -> Name {
         return Name {
@@ -696,11 +717,11 @@ impl Name {
         };
     }
 
-    pub fn strip_right(&self, label_count: usize) -> Result<Name> {
+    pub fn strip_right(&self, label_count: usize) -> Name {
         assert!(label_count < self.label_count as usize);
 
         if label_count == 0 {
-            return Ok(self.clone());
+            return self.clone();
         }
 
         let new_label_count = self.label_count as usize - label_count;
@@ -712,12 +733,30 @@ impl Name {
 
         let mut offsets = Vec::with_capacity(new_label_count);
         offsets.extend_from_slice(&self.offsets[0..end_label + 1]);
-        Ok(Name {
+        Name {
             length: end_pos as u8 + 1,
             label_count: new_label_count as u8,
             raw: raw,
             offsets: offsets,
-        })
+        }
+    }
+
+    pub fn to_child(mut self, label_count: usize) -> Name {
+        assert!(label_count < self.label_count as usize);
+
+        if label_count == 0 {
+            return self;
+        }
+
+        let new_label_count = self.label_count as usize - label_count;
+        let end_label = new_label_count - 1;
+        let end_pos = self.offsets[end_label] as usize;
+        self.raw.split_off(end_pos+1);
+        self.raw[end_pos] = 0;
+        self.offsets.split_off(new_label_count+1);
+        self.length = (end_pos + 1) as u8;
+        self.label_count = new_label_count as u8;
+        self
     }
 
     pub fn hash(&self, case_sensitive: bool) -> u32 {
@@ -896,29 +935,49 @@ mod test {
     fn test_name_strip() {
         let www_knet_cn_mix_case = Name::new("www.KNET.cN", true).unwrap();
         assert_eq!(
-            &www_knet_cn_mix_case.strip_left(1).unwrap().to_string(),
+            &www_knet_cn_mix_case.strip_left(1).to_string(),
             "knet.cn."
         );
         assert_eq!(
-            &www_knet_cn_mix_case.strip_left(2).unwrap().to_string(),
+            &www_knet_cn_mix_case.strip_left(2).to_string(),
             "cn."
         );
         assert_eq!(
-            &www_knet_cn_mix_case.strip_left(3).unwrap().to_string(),
+            &www_knet_cn_mix_case.strip_left(3).to_string(),
             "."
         );
         assert_eq!(
-            &www_knet_cn_mix_case.strip_right(1).unwrap().to_string(),
+            &www_knet_cn_mix_case.strip_right(1).to_string(),
             "www.knet."
         );
         assert_eq!(
-            &www_knet_cn_mix_case.strip_right(2).unwrap().to_string(),
+            &www_knet_cn_mix_case.strip_right(2).to_string(),
             "www."
         );
         assert_eq!(
-            &www_knet_cn_mix_case.strip_right(3).unwrap().to_string(),
+            &www_knet_cn_mix_case.strip_right(3).to_string(),
             "."
         );
+
+        let mut name = www_knet_cn_mix_case.clone();
+        let ancestors = ["knet.cn.", "cn.", "."];
+        for i in 0..3 {
+            name = name.to_ancestor(1);
+            assert_eq!(
+                name.to_string(),
+                ancestors[i]
+            );
+        }
+
+        let mut name = www_knet_cn_mix_case.clone();
+        let children = ["www.knet.", "www.", "."];
+        for i in 0..3 {
+            name = name.to_child(1);
+            assert_eq!(
+                name.to_string(),
+                children[i]
+            );
+        }
     }
 
     #[test]
