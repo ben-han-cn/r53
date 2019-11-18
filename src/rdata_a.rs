@@ -1,12 +1,12 @@
+use crate::message_render::MessageRender;
+use crate::rdatafield_string_parser::Parser;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::Result;
 use std::net::Ipv4Addr;
-
-use error::*;
-use message_render::MessageRender;
-use util::{InputBuffer, OutputBuffer};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct A {
-    host: Ipv4Addr,
+    pub host: Ipv4Addr,
 }
 
 fn get_ipv4_addr(buf: &mut InputBuffer) -> Result<Ipv4Addr> {
@@ -19,11 +19,9 @@ impl A {
         get_ipv4_addr(buf).map(|addr| A { host: addr })
     }
 
-    pub fn from_string(ip_str: &str) -> Result<Self> {
-        match ip_str.parse() {
-            Ok(ip) => Ok(A { host: ip }),
-            Err(_) => Err(ErrorKind::InvalidIPv4Address.into()),
-        }
+    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+        let ip = iter.next_field::<Ipv4Addr>("A", "Host")?;
+        Ok(A { host: ip })
     }
 
     pub fn rend(&self, render: &mut MessageRender) {
@@ -50,7 +48,7 @@ impl A {
 #[cfg(test)]
 mod test {
     use super::*;
-    use util::hex::from_hex;
+    use crate::util::hex::from_hex;
 
     #[test]
     fn test_a_to_wire() {

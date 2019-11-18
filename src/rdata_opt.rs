@@ -1,15 +1,16 @@
-use error::Error;
-use message_render::MessageRender;
-use util::hex::to_hex;
-use util::{InputBuffer, OutputBuffer};
+use crate::message_render::MessageRender;
+use crate::rdatafield_string_parser::Parser;
+use crate::util::hex::to_hex;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::Result;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct OPT {
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 impl OPT {
-    pub fn from_wire(buf: &mut InputBuffer, len: u16) -> Result<Self, Error> {
+    pub fn from_wire(buf: &mut InputBuffer, len: u16) -> Result<Self> {
         buf.read_bytes(len as usize).map(|data| OPT {
             data: data.to_vec(),
         })
@@ -25,6 +26,11 @@ impl OPT {
 
     pub fn to_string(&self) -> String {
         to_hex(&self.data)
+    }
+
+    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+        let data = iter.next_hex("OPT", "data")?;
+        Ok(OPT { data })
     }
 }
 

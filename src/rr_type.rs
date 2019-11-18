@@ -1,7 +1,9 @@
-use error::Error;
-use message_render::MessageRender;
+use crate::error::DNSError;
+use crate::message_render::MessageRender;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::Result;
 use std::fmt;
-use util::{InputBuffer, OutputBuffer};
+use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -59,8 +61,8 @@ impl RRType {
         }
     }
 
-    pub fn to_u16(&self) -> u16 {
-        match *self {
+    pub fn to_u16(self) -> u16 {
+        match self {
             RRType::A => 1,
             RRType::NS => 2,
             RRType::CNAME => 5,
@@ -87,8 +89,8 @@ impl RRType {
         }
     }
 
-    fn to_string(&self) -> &'static str {
-        match *self {
+    pub fn to_str(self) -> &'static str {
+        match self {
             RRType::A => "A",
             RRType::NS => "NS",
             RRType::CNAME => "CNAME",
@@ -115,50 +117,53 @@ impl RRType {
         }
     }
 
-    pub fn from_wire(buf: &mut InputBuffer) -> Result<Self, Error> {
-        buf.read_u16().map(|n| RRType::new(n))
+    pub fn from_wire(buf: &mut InputBuffer) -> Result<Self> {
+        buf.read_u16().map(RRType::new)
     }
 
-    pub fn from_string(s: &str) -> Option<Self> {
-        match s.to_uppercase().as_ref() {
-            "A" => Some(RRType::A),
-            "NS" => Some(RRType::NS),
-            "CNAME" => Some(RRType::CNAME),
-            "SOA" => Some(RRType::SOA),
-            "PTR" => Some(RRType::PTR),
-            "MX" => Some(RRType::MX),
-            "TXT" => Some(RRType::TXT),
-            "AAAA" => Some(RRType::AAAA),
-            "SRV" => Some(RRType::SRV),
-            "NAPTR" => Some(RRType::NAPTR),
-            "DNAME" => Some(RRType::DNAME),
-            "OPT" => Some(RRType::OPT),
-            "DS" => Some(RRType::DS),
-            "RRSIG" => Some(RRType::RRSIG),
-            "NSEC" => Some(RRType::NSEC),
-            "DNSKEY" => Some(RRType::DNSKEY),
-            "NSEC3" => Some(RRType::NSEC3),
-            "NSEC3PARAM" => Some(RRType::NSEC3PARAM),
-            "TSIG" => Some(RRType::TSIG),
-            "IXFR" => Some(RRType::IXFR),
-            "AXFR" => Some(RRType::AXFR),
-            "ANY" => Some(RRType::ANY),
-            _ => None,
-        }
-    }
-
-    pub fn rend(&self, render: &mut MessageRender) {
+    pub fn rend(self, render: &mut MessageRender) {
         render.write_u16(self.to_u16());
     }
 
-    pub fn to_wire(&self, buf: &mut OutputBuffer) {
+    pub fn to_wire(self, buf: &mut OutputBuffer) {
         buf.write_u16(self.to_u16());
     }
 }
 
 impl fmt::Display for RRType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.to_string())
+        f.write_str(self.to_str())
+    }
+}
+
+impl FromStr for RRType {
+    type Err = failure::Error;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        match s.to_uppercase().as_ref() {
+            "A" => Ok(RRType::A),
+            "NS" => Ok(RRType::NS),
+            "CNAME" => Ok(RRType::CNAME),
+            "SOA" => Ok(RRType::SOA),
+            "PTR" => Ok(RRType::PTR),
+            "MX" => Ok(RRType::MX),
+            "TXT" => Ok(RRType::TXT),
+            "AAAA" => Ok(RRType::AAAA),
+            "SRV" => Ok(RRType::SRV),
+            "NAPTR" => Ok(RRType::NAPTR),
+            "DNAME" => Ok(RRType::DNAME),
+            "OPT" => Ok(RRType::OPT),
+            "DS" => Ok(RRType::DS),
+            "RRSIG" => Ok(RRType::RRSIG),
+            "NSEC" => Ok(RRType::NSEC),
+            "DNSKEY" => Ok(RRType::DNSKEY),
+            "NSEC3" => Ok(RRType::NSEC3),
+            "NSEC3PARAM" => Ok(RRType::NSEC3PARAM),
+            "TSIG" => Ok(RRType::TSIG),
+            "IXFR" => Ok(RRType::IXFR),
+            "AXFR" => Ok(RRType::AXFR),
+            "ANY" => Ok(RRType::ANY),
+            _ => Err(DNSError::UnknownRRType(0).into()),
+        }
     }
 }
 
@@ -169,5 +174,6 @@ mod test {
     #[test]
     pub fn test_rrtype_equal() {
         assert_eq!(RRType::A.to_u16(), 1);
+        assert_eq!(RRType::A.to_str(), "A");
     }
 }

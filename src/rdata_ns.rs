@@ -1,21 +1,22 @@
-use error::Error;
-use message_render::MessageRender;
-use name::Name;
-use util::{InputBuffer, OutputBuffer};
+use crate::message_render::MessageRender;
+use crate::name::Name;
+use crate::rdatafield_string_parser::Parser;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::Result;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct NS {
-    name: Name,
+    pub name: Name,
 }
 
 impl NS {
-    pub fn from_wire(buf: &mut InputBuffer, _len: u16) -> Result<Self, Error> {
-        Name::from_wire(buf, false).map(|name| NS { name: name })
+    pub fn from_wire(buf: &mut InputBuffer, _len: u16) -> Result<Self> {
+        Name::from_wire(buf).map(|name| NS { name })
     }
 
-    pub fn from_string(name_str: &str) -> Result<Self, Error> {
-        let name = Name::new(name_str, false)?;
-        Ok(NS { name: name })
+    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+        let name = iter.next_field::<Name>("NS", "name")?;
+        Ok(NS { name })
     }
 
     pub fn rend(&self, render: &mut MessageRender) {
@@ -34,14 +35,14 @@ impl NS {
 #[cfg(test)]
 mod test {
     use super::*;
-    use util::hex::from_hex;
+    use crate::util::hex::from_hex;
 
     #[test]
     fn test_ns_to_wire() {
         let raw = from_hex("0474657374076578616d706c6503636f6d00").unwrap();
         let mut buf = InputBuffer::new(raw.as_slice());
         let ns = NS::from_wire(&mut buf, raw.len() as u16).unwrap();
-        assert_eq!(&ns.name, &Name::new("test.example.com", false).unwrap());
+        assert_eq!(&ns.name, &Name::new("test.example.com").unwrap());
 
         let mut render = MessageRender::new();
         ns.rend(&mut render);

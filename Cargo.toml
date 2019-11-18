@@ -2,10 +2,12 @@
 name = "r53"
 version = "0.1.0"
 authors = ["hanfeng <ben.han.cn@gmail.com>"]
+edition = "2018"
 
 [dependencies]
-error-chain = { version = "0.12", default-features = false }
 clap = { version = "2.32", default-features = false}
+failure = { git = "https://github.com/zdnscloud/cement-rs", package = "failure_ext"}
+rand = "0.7"
 
 [lib]
 name = "r53"

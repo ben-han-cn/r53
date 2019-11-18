@@ -1,21 +1,20 @@
-use name::{
-    hash_raw, Name, COMPRESS_POINTER_MARK16, COMPRESS_POINTER_MARK8, MAP_TO_LOWER, MAX_LABEL_COUNT,
-};
-use util::{InputBuffer, OutputBuffer};
+use crate::name::{Name, COMPRESS_POINTER_MARK16, COMPRESS_POINTER_MARK8, MAX_LABEL_COUNT};
+use crate::util::{InputBuffer, OutputBuffer};
 
 const MAX_COMPRESS_POINTER: usize = 0x3fff;
+const HASH_SEED: u32 = 0x9e37_79b9;
 
 #[derive(Clone, Copy)]
 struct OffSetItem {
-    hash: u32,
-    pos: u16,
     len: u8,
+    pos: u16,
+    hash: u32,
 }
 
+#[derive(Clone, Copy)]
 struct NameComparator<'a> {
     buffer: &'a OutputBuffer,
     hash: u32,
-    case_sensitive: bool,
 }
 
 struct NameRef<'a> {
@@ -27,7 +26,7 @@ impl<'a> NameRef<'a> {
     fn from_name(name: &'a Name) -> Self {
         NameRef {
             parent_level: 0,
-            name: name,
+            name,
         }
     }
 
@@ -36,21 +35,26 @@ impl<'a> NameRef<'a> {
     }
 
     fn is_root(&self) -> bool {
-        self.parent_level + 1 == self.name.label_count
+        self.parent_level + 1 == self.name.label_count() as u8
     }
 
     fn raw_data(&self) -> &[u8] {
-        let offset = self.name.offsets[self.parent_level as usize] as usize;
+        let offset = self.name.offsets()[self.parent_level as usize] as usize;
         &self.name.raw_data()[offset..]
     }
 
-    fn hash(&self, case_sensitive: bool) -> u32 {
-        hash_raw(self.raw_data(), case_sensitive)
+    fn hash(&self) -> u32 {
+        self.raw_data().iter().fold(0, |hash, c| {
+            hash ^ (u32::from(*c)
+                .wrapping_add(HASH_SEED)
+                .wrapping_add(hash << 6)
+                .wrapping_add(hash >> 2))
+        })
     }
 }
 
 impl<'a> NameComparator<'a> {
-    pub fn compare(&self, item: &OffSetItem, name_buffer: &mut InputBuffer) -> bool {
+    pub fn compare(self, item: OffSetItem, name_buffer: &mut InputBuffer) -> bool {
         if item.hash != self.hash || item.len != (name_buffer.len() as u8) {
             return false;
         }
@@ -69,14 +73,8 @@ impl<'a> NameComparator<'a> {
             while name_label_len > 0 {
                 let ch1 = self.buffer.at(item_pos as usize);
                 let ch2 = name_buffer.read_u8().unwrap();
-                if self.case_sensitive {
-                    if ch1 != ch2 {
-                        return false;
-                    }
-                } else {
-                    if MAP_TO_LOWER[ch1 as usize] != MAP_TO_LOWER[ch2 as usize] {
-                        return false;
-                    }
+                if ch1 != ch2 {
+                    return false;
                 }
                 item_pos += 1;
                 name_label_len -= 1;
@@ -89,8 +87,8 @@ impl<'a> NameComparator<'a> {
         let mut next_pos = pos as usize;
         let mut b = self.buffer.at(next_pos);
         while b & COMPRESS_POINTER_MARK8 == COMPRESS_POINTER_MARK8 {
-            let nb = self.buffer.at(next_pos + 1) as u16;
-            next_pos = (((b & !(COMPRESS_POINTER_MARK8 as u8)) as u16) * 256 + nb) as usize;
+            let nb = u16::from(self.buffer.at(next_pos + 1));
+            next_pos = (u16::from(b & !(COMPRESS_POINTER_MARK8 as u8)) * 256 + nb) as usize;
             b = self.buffer.at(next_pos);
         }
         (b, (next_pos + 1) as u16)
@@ -105,9 +103,14 @@ const MAX_MESSAGE_LEN: u32 = 512;
 pub struct MessageRender {
     buffer: OutputBuffer,
     truncated: bool,
-    case_sensitive: bool,
     table: Vec<Vec<OffSetItem>>,
     label_hashes: [u32; MAX_LABEL_COUNT as usize],
+}
+
+impl Default for MessageRender {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MessageRender {
@@ -115,7 +118,6 @@ impl MessageRender {
         let mut render = MessageRender {
             buffer: OutputBuffer::new(MAX_MESSAGE_LEN as usize),
             truncated: false,
-            case_sensitive: true,
             table: Vec::new(),
             label_hashes: [0; MAX_LABEL_COUNT as usize],
         };
@@ -140,11 +142,10 @@ impl MessageRender {
         let bucket_id = hash % (BUCKETS as u32);
         let comparator = NameComparator {
             buffer: &self.buffer,
-            hash: hash,
-            case_sensitive: self.case_sensitive,
+            hash,
         };
         for item in &self.table[bucket_id as usize] {
-            if comparator.compare(&item, name_buffer) {
+            if comparator.compare(*item, name_buffer) {
                 return item.pos;
             }
         }
@@ -154,16 +155,15 @@ impl MessageRender {
     pub fn add_offset(&mut self, hash: u32, offset: u16, len: u8) {
         let bucket_id = hash % (BUCKETS as u32);
         self.table[bucket_id as usize].push(OffSetItem {
-            hash: hash,
+            hash,
             pos: offset,
-            len: len,
+            len,
         });
     }
 
     pub fn clear(&mut self) {
         self.buffer.clear();
         self.truncated = false;
-        self.case_sensitive = false;
         for i in 0..BUCKETS {
             self.table[i].clear()
         }
@@ -185,7 +185,7 @@ impl MessageRender {
                 break;
             }
 
-            self.label_hashes[label_uncompressed] = parent.hash(self.case_sensitive);
+            self.label_hashes[label_uncompressed] = parent.hash();
             if compress {
                 offset = self.find_offset(
                     &mut InputBuffer::new(parent.raw_data()),
@@ -199,7 +199,7 @@ impl MessageRender {
         }
 
         let mut name_pos = self.buffer.len();
-        if compress == false || label_uncompressed == label_count {
+        if !compress || label_uncompressed == label_count {
             self.buffer.write_bytes(name.raw_data());
         } else if label_uncompressed > 0 {
             let pos = name.offsets()[label_uncompressed as usize];
@@ -241,6 +241,10 @@ impl MessageRender {
         self.buffer.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.buffer.len() == 0
+    }
+
     pub fn skip(&mut self, len: usize) {
         self.buffer.skip(len);
     }
@@ -277,15 +281,15 @@ impl MessageRender {
 #[cfg(test)]
 mod test {
     use super::*;
-    use message::Message;
-    use name::Name;
-    use util::hex::from_hex;
+    use crate::message::Message;
+    use crate::name::Name;
+    use crate::util::hex::from_hex;
 
     #[test]
     fn test_write_name() {
-        let a_example_com = Name::new("a.example.com", true).unwrap();
-        let b_example_com = Name::new("b.example.com", true).unwrap();
-        let a_example_org = Name::new("a.example.org", true).unwrap();
+        let a_example_com = Name::new("a.example.com").unwrap();
+        let b_example_com = Name::new("b.example.com").unwrap();
+        let a_example_org = Name::new("a.example.org").unwrap();
         let mut render = MessageRender::new();
 
         let raw = from_hex("0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700")
@@ -319,21 +323,23 @@ mod test {
         render.write_name(&b_example_com, true);
         render.write_name(&b_example_com, true);
         assert_eq!(raw.as_slice(), render.data());
+        render.take_data();
 
+        /*
         let raw = from_hex("0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700")
             .unwrap();
         render.clear();
-        let b_example_com_cs = Name::new("b.exAmple.CoM", false).unwrap();
+        let b_example_com_cs = Name::new("b.exAmple.CoM").unwrap();
         render.write_name(&a_example_com, true);
-        render.write_name(&b_example_com_cs, true);
+        render.write_name(&b_example_com_cs, false);
         render.write_name(&a_example_org, true);
         assert_eq!(raw.as_slice(), render.data());
+        */
 
         let raw =
             from_hex("e3808583000100000001000001320131033136380331393207696e2d61646472046172706100000c0001033136380331393207494e2d4144445204415250410000060001000151800017c02a00000000000000708000001c2000093a8000015180").unwrap();
-        render.clear();
+        //render.clear();
         let msg = Message::from_wire(raw.as_slice()).unwrap();
-        render.case_sensitive = true;
         msg.rend(&mut render);
         assert_eq!(raw.as_slice(), render.data());
     }

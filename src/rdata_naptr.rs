@@ -1,30 +1,31 @@
-use error::Error;
-use message_render::MessageRender;
-use name::Name;
-use util::{InputBuffer, OutputBuffer};
+use crate::message_render::MessageRender;
+use crate::name::Name;
+use crate::rdatafield_string_parser::Parser;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::Result;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct NAPTR {
-    order: u16,
-    preference: u16,
-    flags: u16,
-    services: u16,
-    replacement: Name,
+    pub order: u16,
+    pub preference: u16,
+    pub flags: u16,
+    pub services: u16,
+    pub replacement: Name,
 }
 
 impl NAPTR {
-    pub fn from_wire(buf: &mut InputBuffer, _len: u16) -> Result<Self, Error> {
+    pub fn from_wire(buf: &mut InputBuffer, _len: u16) -> Result<Self> {
         let order = buf.read_u16()?;
         let preference = buf.read_u16()?;
         let flags = buf.read_u16()?;
         let services = buf.read_u16()?;
-        let replacement = Name::from_wire(buf, false)?;
+        let replacement = Name::from_wire(buf)?;
         Ok(NAPTR {
-            order: order,
-            preference: preference,
-            flags: flags,
-            services: services,
-            replacement: replacement,
+            order,
+            preference,
+            flags,
+            services,
+            replacement,
         })
     }
 
@@ -52,7 +53,22 @@ impl NAPTR {
             self.services.to_string(),
             self.replacement.to_string(),
         ]
-            .join(" ")
+        .join(" ")
+    }
+
+    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+        let order = iter.next_field::<u16>("NAPTR", "order")?;
+        let preference = iter.next_field::<u16>("NAPTR", "preference")?;
+        let flags = iter.next_field::<u16>("NAPTR", "flags")?;
+        let services = iter.next_field::<u16>("NAPTR", "services")?;
+        let replacement = iter.next_field::<Name>("NAPTR", "replacement")?;
+        Ok(NAPTR {
+            order,
+            preference,
+            flags,
+            services,
+            replacement,
+        })
     }
 }
 

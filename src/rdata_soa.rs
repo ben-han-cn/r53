@@ -1,36 +1,37 @@
-use error::Error;
-use message_render::MessageRender;
-use name::Name;
-use util::{InputBuffer, OutputBuffer};
+use crate::message_render::MessageRender;
+use crate::name::Name;
+use crate::rdatafield_string_parser::Parser;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::Result;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SOA {
-    mname: Name,
-    rname: Name,
-    serial: u32,
-    refresh: u32,
-    retry: u32,
-    expire: u32,
-    minimum: u32,
+    pub mname: Name,
+    pub rname: Name,
+    pub serial: u32,
+    pub refresh: u32,
+    pub retry: u32,
+    pub expire: u32,
+    pub minimum: u32,
 }
 
 impl SOA {
-    pub fn from_wire(buf: &mut InputBuffer, _len: u16) -> Result<Self, Error> {
-        let mname = Name::from_wire(buf, false)?;
-        let rname = Name::from_wire(buf, false)?;
+    pub fn from_wire(buf: &mut InputBuffer, _len: u16) -> Result<Self> {
+        let mname = Name::from_wire(buf)?;
+        let rname = Name::from_wire(buf)?;
         let serial = buf.read_u32()?;
         let refresh = buf.read_u32()?;
         let retry = buf.read_u32()?;
         let expire = buf.read_u32()?;
         let minimum = buf.read_u32()?;
         Ok(SOA {
-            mname: mname,
-            rname: rname,
-            serial: serial,
-            refresh: refresh,
-            retry: retry,
-            expire: expire,
-            minimum: minimum,
+            mname,
+            rname,
+            serial,
+            refresh,
+            retry,
+            expire,
+            minimum,
         })
     }
 
@@ -64,14 +65,33 @@ impl SOA {
             self.expire.to_string(),
             self.minimum.to_string(),
         ]
-            .join(" ")
+        .join(" ")
+    }
+
+    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+        let mname = iter.next_field::<Name>("SOA", "mname")?;
+        let rname = iter.next_field::<Name>("SOA", "rname")?;
+        let serial = iter.next_field::<u32>("SOA", "serial")?;
+        let refresh = iter.next_field::<u32>("SOA", "refresh")?;
+        let retry = iter.next_field::<u32>("SOA", "retry")?;
+        let expire = iter.next_field::<u32>("SOA", "expire")?;
+        let minimum = iter.next_field::<u32>("SOA", "minimum")?;
+        Ok(SOA {
+            mname,
+            rname,
+            serial,
+            refresh,
+            retry,
+            expire,
+            minimum,
+        })
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use util::hex::from_hex;
+    use crate::util::hex::from_hex;
 
     #[test]
     fn test_soa_to_wire() {

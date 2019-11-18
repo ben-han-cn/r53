@@ -1,10 +1,10 @@
-use error::Error;
-use header_flag::{clear_flag, set_flag, setted_flags, HeaderFlag};
-use message_render::MessageRender;
-use opcode::Opcode;
-use rcode::Rcode;
+use crate::header_flag::{clear_flag, is_flag_set, set_flag, setted_flags, HeaderFlag};
+use crate::message_render::MessageRender;
+use crate::opcode::Opcode;
+use crate::rcode::Rcode;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::Result;
 use std::fmt::Write;
-use util::{InputBuffer, OutputBuffer};
 
 const HEADERFLAG_MASK: u16 = 0x87b0;
 const OPCODE_MASK: u16 = 0x7800;
@@ -24,22 +24,22 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn from_wire(buf: &mut InputBuffer) -> Result<Self, Error> {
-        let id = try!(buf.read_u16());
-        let flag = try!(buf.read_u16());
-        let qd_count = try!(buf.read_u16());
-        let an_count = try!(buf.read_u16());
-        let ns_count = try!(buf.read_u16());
-        let ar_count = try!(buf.read_u16());
+    pub fn from_wire(buf: &mut InputBuffer) -> Result<Self> {
+        let id = buf.read_u16()?;
+        let flag = buf.read_u16()?;
+        let qd_count = buf.read_u16()?;
+        let an_count = buf.read_u16()?;
+        let ns_count = buf.read_u16()?;
+        let ar_count = buf.read_u16()?;
         Ok(Header {
-            id: id,
+            id,
             flag: flag & HEADERFLAG_MASK,
             opcode: Opcode::new(((flag & OPCODE_MASK) >> OPCODE_SHIFT) as u8),
             rcode: Rcode::new((flag & RCODE_MASK) as u8),
-            qd_count: qd_count,
-            an_count: an_count,
-            ns_count: ns_count,
-            ar_count: ar_count,
+            qd_count,
+            an_count,
+            ns_count,
+            ar_count,
         })
     }
 
@@ -54,6 +54,10 @@ impl Header {
 
     pub fn setted_flags(&self) -> Vec<HeaderFlag> {
         setted_flags(self.flag)
+    }
+
+    pub fn is_flag_set(&self, flag: HeaderFlag) -> bool {
+        is_flag_set(self.flag, flag)
     }
 
     pub fn set_flag(&mut self, flag: HeaderFlag, set: bool) {
@@ -74,8 +78,8 @@ impl Header {
     }
 
     fn header_flag(&self) -> u16 {
-        let mut flag: u16 = (((self.opcode.to_u8()) as u16) << OPCODE_SHIFT) & OPCODE_MASK;
-        flag |= ((self.rcode.to_u8()) as u16) & RCODE_MASK;
+        let mut flag: u16 = ((u16::from(self.opcode.to_u8())) << OPCODE_SHIFT) & OPCODE_MASK;
+        flag |= (u16::from(self.rcode.to_u8())) & RCODE_MASK;
         flag |= self.flag & HEADERFLAG_MASK;
         flag
     }
@@ -91,13 +95,14 @@ impl Header {
 
     pub fn to_string(&self) -> String {
         let mut header_str = String::new();
-        write!(
+        writeln!(
             &mut header_str,
-            ";; ->>HEADER<<- opcode: {}, status: {}, id: {}\n",
+            ";; ->>HEADER<<- opcode: {}, status: {}, id: {}",
             self.opcode.to_string(),
             self.rcode.to_string(),
             self.id
-        ).unwrap();
+        )
+        .unwrap();
         write!(&mut header_str, ";; flags: ").unwrap();
         for flag in self.setted_flags() {
             write!(&mut header_str, " {}", flag.to_string()).unwrap();
@@ -106,15 +111,14 @@ impl Header {
         write!(&mut header_str, "QUERY: {}, ", self.qd_count).unwrap();
         write!(&mut header_str, "ANSWER: {}, ", self.an_count).unwrap();
         write!(&mut header_str, "AUTHORITY: {}, ", self.ns_count).unwrap();
-        write!(&mut header_str, "ADDITIONAL: {}, ", self.ar_count).unwrap();
-        write!(&mut header_str, "\n").unwrap();
+        writeln!(&mut header_str, "ADDITIONAL: {}, ", self.ar_count).unwrap();
         header_str
     }
 }
 
 impl Default for Header {
     fn default() -> Header {
-        return Header {
+        Header {
             id: 52091,
             flag: 0,
             opcode: Opcode::Query,
@@ -123,14 +127,14 @@ impl Default for Header {
             an_count: 0,
             ns_count: 0,
             ar_count: 0,
-        };
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use util::hex::from_hex;
+    use crate::util::hex::from_hex;
 
     #[test]
     fn test_from_to_wire() {
@@ -150,6 +154,7 @@ mod test {
         assert_eq!(header.an_count, 2);
         assert_eq!(header.ns_count, 1);
         assert_eq!(header.ar_count, 2);
+        assert!(header.is_flag_set(HeaderFlag::QueryRespone));
 
         let mut render = MessageRender::new();
         header.rend(&mut render);

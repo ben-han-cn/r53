@@ -29,7 +29,7 @@ pub fn from_hex(hex_str: &str) -> Option<Vec<u8>> {
 }
 
 static CHARS: &'static [u8] = b"0123456789abcdef";
-pub fn to_hex(data: &Vec<u8>) -> String {
+pub fn to_hex(data: &[u8]) -> String {
     let mut v = Vec::with_capacity(data.len() * 2);
     for &byte in data.iter() {
         v.push(CHARS[(byte >> 4) as usize]);

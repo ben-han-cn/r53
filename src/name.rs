@@ -1,10 +1,17 @@
-use error::*;
-use message_render::MessageRender;
-use std::cmp;
-use std::fmt;
-use util::{InputBuffer, OutputBuffer};
+use crate::error::DNSError;
+use crate::label_sequence::LabelSequence;
+use crate::label_slice::LabelSlice;
+use crate::message_render::MessageRender;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::{self, Result};
+use std::{
+    cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
+    fmt,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum NameRelation {
     SuperDomain,
     SubDomain,
@@ -19,30 +26,27 @@ pub const MAX_LABEL_LEN: u8 = 63;
 pub const COMPRESS_POINTER_MARK8: u8 = 0xc0;
 pub const COMPRESS_POINTER_MARK16: u16 = 0xc000;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Name {
-    pub raw: Vec<u8>,
-    pub offsets: Vec<u8>,
-    length: u8,
-    pub label_count: u8,
+    raw: Vec<u8>,
+    offsets: Vec<u8>,
 }
 
 pub fn root() -> Name {
     Name {
-        length: 1,
-        label_count: 1,
         raw: vec![0],
         offsets: vec![0],
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct NameComparisonResult {
     pub order: i8,
     pub common_label_count: u8,
     pub relation: NameRelation,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 enum FtStat {
     Init,
     Start,
@@ -106,37 +110,15 @@ pub static MAP_TO_LOWER: &'static [u8] = &[
 ];
 
 #[inline]
-pub fn lower_caes(c: usize) -> u8 {
+pub fn lower_case(c: usize) -> u8 {
     MAP_TO_LOWER[c]
 }
 
-pub fn hash_raw(raw: &[u8], case_sensitive: bool) -> u32 {
-    let mut hash: u32 = 0;
-    let seed: u32 = 0x9e3779b9;
-    let length = raw.len();
-    if case_sensitive {
-        for i in 0..(length as usize) {
-            hash ^= (raw[i] as u32)
-                .wrapping_add(seed)
-                .wrapping_add(hash << 6)
-                .wrapping_add(hash >> 2);
-        }
-    } else {
-        for i in 0..(length as usize) {
-            hash ^= (lower_caes(raw[i] as usize) as u32)
-                .wrapping_add(seed)
-                .wrapping_add(hash << 6)
-                .wrapping_add(hash >> 2);
-        }
-    }
-    hash
-}
-
-fn string_parse(
+pub fn string_parse(
     name_raw: &[u8],
     start_pos: usize,
     end: usize,
-    downcase: bool,
+    as_absolute: bool,
 ) -> Result<(Vec<u8>, Vec<u8>)> {
     let mut start = start_pos;
     let mut data: Vec<u8> = Vec::with_capacity(end - start + 1);
@@ -151,8 +133,11 @@ fn string_parse(
     let mut c: char = 0 as char;
 
     offsets.push(0);
-    while data.len() < MAX_WIRE_LEN && start != end && done == false {
+    loop {
         if next_u8 {
+            if data.len() >= MAX_WIRE_LEN || start == end || done {
+                break;
+            }
             c = name_raw[start] as char;
             start += 1;
         }
@@ -160,7 +145,7 @@ fn string_parse(
         if state == FtStat::Init {
             if c == '.' {
                 if start != end {
-                    return Err(ErrorKind::NoneTerminateLabel.into());
+                    return Err(DNSError::NoneTerminateLabel.into());
                 } else {
                     is_root = true;
                 }
@@ -187,7 +172,7 @@ fn string_parse(
         } else if state == FtStat::Ordinary {
             if c == '.' {
                 if count == 0 {
-                    return Err(ErrorKind::DuplicatePeriod.into());
+                    return Err(DNSError::DuplicatePeriod.into());
                 }
                 data[offsets[offsets.len() - 1] as usize] = count;
                 offsets.push(data.len() as u8);
@@ -201,32 +186,24 @@ fn string_parse(
             } else {
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err(ErrorKind::TooLongLabel.into());
+                    return Err(DNSError::TooLongLabel.into());
                 }
-                if downcase {
-                    data.push(lower_caes(c as usize));
-                } else {
-                    data.push(c as u8);
-                }
+                data.push(c as u8);
             }
             next_u8 = true;
         } else if state == FtStat::Initialescape {
             if c == '[' {
-                return Err(ErrorKind::InvalidLabelCharacter.into());
+                return Err(DNSError::InvalidLabelCharacter.into());
             }
             state = FtStat::Escape;
             next_u8 = false;
         } else if state == FtStat::Escape {
-            if is_digit(c) == false {
+            if !is_digit(c) {
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err(ErrorKind::TooLongLabel.into());
+                    return Err(DNSError::TooLongLabel.into());
                 }
-                if downcase {
-                    data.push(lower_caes(c as usize));
-                } else {
-                    data.push(c as u8);
-                }
+                data.push(c as u8);
                 state = FtStat::Ordinary;
                 break;
             }
@@ -235,25 +212,21 @@ fn string_parse(
             state = FtStat::Escdecimal;
             next_u8 = false;
         } else if state == FtStat::Escdecimal {
-            if is_digit(c) == false {
-                return Err(ErrorKind::InvalidDecimalFormat.into());
+            if !is_digit(c) {
+                return Err(DNSError::InvalidDecimalFormat.into());
             }
-            value = value * 10;
-            value = value + digitvalue(c as usize) as i32;
+            value *= 10;
+            value += i32::from(digitvalue(c as usize));
             digits += 1;
             if digits == 3 {
                 if value > 255 {
-                    return Err(ErrorKind::InvalidDecimalFormat.into());
+                    return Err(DNSError::InvalidDecimalFormat.into());
                 }
                 count += 1;
                 if count > MAX_LABEL_LEN {
-                    return Err(ErrorKind::TooLongLabel.into());
+                    return Err(DNSError::TooLongLabel.into());
                 }
-                if downcase {
-                    data.push(lower_caes(c as usize));
-                } else {
-                    data.push(c as u8);
-                }
+                data.push(c as u8);
                 state = FtStat::Ordinary;
             }
             next_u8 = true;
@@ -262,18 +235,20 @@ fn string_parse(
         }
     }
 
-    if done == false {
+    if !done {
         if data.len() == MAX_WIRE_LEN {
-            return Err(ErrorKind::TooLongName.into());
+            return Err(DNSError::TooLongName.into());
         }
         assert!(start == end);
         if state != FtStat::Ordinary {
-            return Err(ErrorKind::InCompleteName.into());
+            return Err(DNSError::InCompleteName.into());
         } else {
             assert!(count != 0);
             data[offsets[offsets.len() - 1] as usize] = count as u8;
-            offsets.push(data.len() as u8);
-            data.push(0);
+            if as_absolute {
+                offsets.push(data.len() as u8);
+                data.push(0);
+            }
         }
     }
 
@@ -281,20 +256,19 @@ fn string_parse(
 }
 
 impl Name {
-    pub fn new(name: &str, downcase: bool) -> Result<Name> {
+    pub fn new(name: &str) -> Result<Name> {
         let name_len = name.len();
-        match string_parse(name.as_bytes(), 0, name_len, downcase) {
-            Ok((data, offsets)) => Ok(Name {
-                length: data.len() as u8,
-                label_count: offsets.len() as u8,
-                raw: data,
-                offsets: offsets,
-            }),
+        match string_parse(name.as_bytes(), 0, name_len, true) {
+            Ok((data, offsets)) => Ok(Name { raw: data, offsets }),
             Err(e) => Err(e),
         }
     }
 
-    pub fn from_wire(buf: &mut InputBuffer, downcase: bool) -> Result<Self> {
+    pub(crate) fn from_raw(raw: Vec<u8>, offsets: Vec<u8>) -> Self {
+        Name { raw, offsets }
+    }
+
+    pub fn from_wire(buf: &mut InputBuffer) -> Result<Self> {
         let mut n: usize = 0;
         let mut nused: usize = 0;
         let mut cused: usize = 0;
@@ -308,10 +282,10 @@ impl Name {
         let mut biggest_pointer = current;
         let mut new_current: usize = 0;
 
-        while current < buf.len() && done == false {
-            let mut c = try!(buf.read_u8());
+        while current < buf.len() && !done {
+            let c = buf.read_u8()?;
             current += 1;
-            if seen_pointer == false {
+            if !seen_pointer {
                 cused += 1;
             }
 
@@ -319,7 +293,7 @@ impl Name {
                 if c <= MAX_LABEL_LEN {
                     offsets.push(nused as u8);
                     if nused + (c as usize) + 1 > MAX_WIRE_LEN {
-                        return Err(ErrorKind::TooLongName.into());
+                        return Err(DNSError::TooLongName.into());
                     }
 
                     nused += (c as usize) + 1;
@@ -334,12 +308,9 @@ impl Name {
                     n = 1;
                     state = FwStat::NewCurrent;
                 } else {
-                    return Err(ErrorKind::InvalidLabelCharacter.into());
+                    return Err(DNSError::InvalidLabelCharacter.into());
                 }
             } else if state == FwStat::Ordinary {
-                if downcase {
-                    c = MAP_TO_LOWER[c as usize];
-                }
                 data.push(c);
                 n -= 1;
                 if n == 0 {
@@ -353,7 +324,7 @@ impl Name {
                     break;
                 }
                 if new_current >= biggest_pointer {
-                    return Err(ErrorKind::BadCompressPointer.into());
+                    return Err(DNSError::BadCompressPointer.into());
                 }
                 biggest_pointer = new_current;
                 current = new_current;
@@ -363,25 +334,27 @@ impl Name {
             }
         }
 
-        if done == false {
-            return Err(ErrorKind::InCompleteName.into());
+        if !done {
+            return Err(DNSError::InCompleteName.into());
         }
 
         buf.set_position(pos_beg + cused);
-        Ok(Name {
-            length: data.len() as u8,
-            label_count: offsets.len() as u8,
-            raw: data,
-            offsets: offsets,
-        })
+        Ok(Name { raw: data, offsets })
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
-        self.length as usize
+        self.raw.len() as usize
     }
 
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        return self.len() == 0;
+    }
+
+    #[inline]
     pub fn label_count(&self) -> usize {
-        return self.label_count as usize;
+        self.offsets.len() as usize
     }
 
     pub fn to_wire(&self, buf: &mut OutputBuffer) {
@@ -393,189 +366,80 @@ impl Name {
     }
 
     pub fn to_string(&self) -> String {
-        let mut buf = Vec::with_capacity(self.len());
-        let special_char: Vec<u8> = vec![0x22, 0x28, 0x29, 0x2E, 0x3B, 0x5C, 0x40, 0x24]; //" ( ) . ; \\ @ $
-        let mut i = 0;
-        while i < self.length {
-            let mut count = self.raw[i as usize];
-            i += 1;
-
-            if count == 0 {
-                buf.push('.' as u8);
-                break;
-            }
-
-            if buf.len() != 0 {
-                buf.push('.' as u8);
-            }
-
-            while count > 0 {
-                count -= 1;
-                let c: u8 = self.raw[i as usize];
-                i += 1;
-                if special_char.contains(&c) {
-                    buf.push('\\' as u8);
-                    buf.push(c);
-                } else {
-                    if c > 0x20 && c < 0x7f {
-                        buf.push(c);
-                    } else {
-                        buf.push(0x5c);
-                        buf.push(0x30 + ((c / 100) % 10));
-                        buf.push(0x30 + ((c / 10) % 10));
-                        buf.push(0x30 + (c % 10));
-                    }
-                }
-            }
-        }
-
-        unsafe { String::from_utf8_unchecked(buf) }
+        LabelSlice::from_name(self).to_string()
     }
 
-    pub fn get_relation(&self, other: &Name, case_sensitive: bool) -> NameComparisonResult {
-        let mut l1 = self.label_count;
-        let mut l2 = other.label_count;
-        let ldiff = (l1 as i8) - (l2 as i8);
-        let mut minl = cmp::min(l1, l2);
-        let mut nlabels = 0;
-
-        while minl > 0 {
-            minl -= 1;
-            l1 -= 1;
-            l2 -= 1;
-            let mut ps1 = self.offsets[l1 as usize];
-            let mut ps2 = other.offsets[l2 as usize];
-            let c1 = self.raw[ps1 as usize];
-            let c2 = other.raw[ps2 as usize];
-            ps1 += 1;
-            ps2 += 1;
-
-            let cdiff = (c1 as i8) - (c2 as i8);
-            let mut mincount = cmp::min(c1, c2);
-
-            while mincount > 0 {
-                let label1 = self.raw[ps1 as usize];
-                let label2 = other.raw[ps2 as usize];
-                let chdiff = if case_sensitive {
-                    (label1 as i8) - (label2 as i8)
-                } else {
-                    (lower_caes(label1 as usize) as i8) - (lower_caes(label2 as usize) as i8)
-                };
-
-                if chdiff != 0 {
-                    if nlabels < 2 {
-                        return NameComparisonResult {
-                            order: chdiff,
-                            common_label_count: nlabels,
-                            relation: NameRelation::None,
-                        };
-                    } else {
-                        return NameComparisonResult {
-                            order: chdiff,
-                            common_label_count: nlabels,
-                            relation: NameRelation::CommonAncestor,
-                        };
-                    }
-                }
-                mincount -= 1;
-                ps1 += 1;
-                ps2 += 1;
+    pub fn into_label_sequence(mut self, first_label: usize, last_label: usize) -> LabelSequence {
+        let last_label_len: u8 = self.raw[usize::from(self.offsets[last_label])] + 1;
+        let data_length: u8 = self.offsets[last_label] + last_label_len;
+        self.raw.drain(data_length as usize..);
+        self.offsets.drain(last_label + 1..);
+        if first_label != 0 {
+            self.raw.drain(0..self.offsets[first_label] as usize);
+            self.offsets.drain(0..first_label);
+            let curr_label_value = self.offsets[0];
+            for v in &mut self.offsets {
+                *v -= curr_label_value;
             }
-
-            if cdiff != 0 {
-                if nlabels == 0 {
-                    return NameComparisonResult {
-                        order: cdiff,
-                        common_label_count: nlabels,
-                        relation: NameRelation::None,
-                    };
-                } else {
-                    return NameComparisonResult {
-                        order: cdiff,
-                        common_label_count: nlabels,
-                        relation: NameRelation::CommonAncestor,
-                    };
-                }
-            }
-            nlabels += 1;
         }
 
-        if ldiff < 0 {
-            return NameComparisonResult {
-                order: ldiff,
-                common_label_count: nlabels,
-                relation: NameRelation::SuperDomain,
-            };
-        } else if ldiff > 0 {
-            return NameComparisonResult {
-                order: ldiff,
-                common_label_count: nlabels,
-                relation: NameRelation::SubDomain,
-            };
-        } else {
-            return NameComparisonResult {
-                order: ldiff,
-                common_label_count: nlabels,
-                relation: NameRelation::Equal,
-            };
-        }
+        LabelSequence::new(self.raw, self.offsets)
+    }
+
+    pub fn get_relation(&self, other: &Name) -> NameComparisonResult {
+        LabelSlice::from_name(self).compare(&LabelSlice::from_name(other), false)
     }
 
     pub fn concat_all(&self, suffixes: &[&Name]) -> Result<Name> {
-        let mut final_length = self.length;
-        let mut final_label_count = self.label_count;
+        let mut final_length = self.len();
+        let mut final_label_count = self.label_count();
         let suffix_count = suffixes.len();
         for suffix in suffixes {
-            final_length += suffix.length - 1;
-            final_label_count += suffix.label_count - 1;
+            final_length += suffix.len() - 1;
+            final_label_count += suffix.label_count() - 1;
         }
 
-        if (final_length as usize) > MAX_WIRE_LEN {
-            return Err(ErrorKind::TooLongName.into());
-        } else if final_label_count > MAX_LABEL_COUNT {
-            return Err(ErrorKind::TooLongLabel.into());
+        if final_length > MAX_WIRE_LEN {
+            return Err(DNSError::TooLongName.into());
+        } else if final_label_count > MAX_LABEL_COUNT as usize {
+            return Err(DNSError::TooLongLabel.into());
         }
 
         let mut raw = Vec::with_capacity(final_length as usize);
-        raw.extend_from_slice(&self.raw[..(self.length as usize - 1)]);
+        raw.extend_from_slice(&self.raw[..(self.len() as usize - 1)]);
         for suffix in &suffixes[..(suffix_count as usize - 1)] {
-            raw.extend_from_slice(&suffix.raw[..(suffix.length as usize - 1)])
+            raw.extend_from_slice(&suffix.raw[..(suffix.len() as usize - 1)])
         }
         raw.extend_from_slice(&(suffixes[suffix_count - 1].raw[..]));
 
         let mut offsets = Vec::with_capacity(final_label_count as usize);
         offsets.extend_from_slice(&self.offsets[..]);
-        let mut copied_len = self.label_count;
+        let mut copied_len = self.label_count();
         for suffix in suffixes {
             let last_offset = offsets[copied_len as usize - 1];
-            offsets.extend_from_slice(&suffix.offsets[1..(suffix.label_count as usize)]);
-            for i in copied_len..(copied_len + suffix.label_count - 1) {
+            offsets.extend_from_slice(&suffix.offsets[1..(suffix.label_count() as usize)]);
+            for i in copied_len..(copied_len + suffix.label_count() - 1) {
                 offsets[i as usize] += last_offset as u8
             }
-            copied_len += suffix.label_count - 1;
+            copied_len += suffix.label_count() - 1;
         }
 
-        Ok(Name {
-            raw: raw,
-            offsets: offsets,
-            length: final_length,
-            label_count: final_label_count,
-        })
+        Ok(Name { raw, offsets })
     }
 
     pub fn concat(&self, suffix: &Name) -> Result<Name> {
-        return self.concat_all(&[suffix]);
+        self.concat_all(&[suffix])
     }
 
     pub fn reverse(&self) -> Name {
-        if self.label_count == 1 {
+        if self.label_count() == 1 {
             return self.clone();
         }
 
-        let mut raw = Vec::with_capacity(self.length as usize);
-        let mut offsets = Vec::with_capacity(self.label_count as usize);
+        let mut raw = Vec::with_capacity(self.len() as usize);
+        let mut offsets = Vec::with_capacity(self.label_count() as usize);
         let mut label_len = 0;
-        let mut i = (self.label_count - 2) as i8;
+        let mut i = (self.label_count() - 2) as i8;
         while i >= 0 {
             let label_start = self.offsets[i as usize] as usize;
             let label_end = self.offsets[(i + 1) as usize] as usize;
@@ -587,75 +451,60 @@ impl Name {
 
         raw.push(0);
         offsets.push(label_len as u8);
-        Name {
-            length: self.length,
-            label_count: self.label_count,
-            raw: raw,
-            offsets: offsets,
-        }
+        Name { raw, offsets }
     }
 
     pub fn split(&self, start_label: usize, label_count_: usize) -> Result<Name> {
-        let max_label_count = self.label_count as usize;
+        let max_label_count = self.label_count() as usize;
         if start_label >= max_label_count {
-            return Err(ErrorKind::InvalidLabelIndex.into());
+            return Err(DNSError::InvalidLabelIndex.into());
         }
         let mut label_count = label_count_;
         if start_label + label_count > max_label_count {
             label_count = max_label_count - start_label;
         }
 
-        if start_label + label_count == (self.label_count as usize) {
+        if start_label + label_count == (self.label_count() as usize) {
             let mut offsets = Vec::with_capacity(label_count);
             let first_offset = self.offsets[start_label];
             offsets.extend_from_slice(&self.offsets[start_label..]);
             let start_pos = offsets[0] as usize;
-            let mut raw = Vec::with_capacity(self.length as usize - start_pos);
+            let mut raw = Vec::with_capacity(self.len() as usize - start_pos);
             raw.extend_from_slice(&self.raw[start_pos..]);
             for i in 0..label_count {
                 offsets[i] -= first_offset;
             }
-            Ok(Name {
-                length: self.length - (start_pos as u8),
-                label_count: label_count as u8,
-                raw: raw,
-                offsets: offsets,
-            })
+            Ok(Name { raw, offsets })
         } else {
             let mut offsets = Vec::with_capacity(label_count + 1);
-            offsets.extend_from_slice(&self.offsets[start_label..start_label + label_count + 1]);
+            offsets.extend_from_slice(&self.offsets[start_label..=start_label + label_count]);
             let mut raw = Vec::with_capacity((offsets[label_count] - offsets[0] + 1) as usize);
             raw.extend_from_slice(
                 &self.raw[(offsets[0] as usize)..(offsets[label_count] as usize)],
             );
 
             let first_offset = self.offsets[start_label];
-            for i in 0..(label_count + 1) {
+            for i in 0..=label_count {
                 offsets[i] -= first_offset;
             }
             raw.push(0);
-            Ok(Name {
-                length: (raw.len() as u8),
-                label_count: (label_count as u8) + 1,
-                raw: raw,
-                offsets: offsets,
-            })
+            Ok(Name { raw, offsets })
         }
     }
 
     pub fn parent(&self, level: usize) -> Result<Name> {
-        self.split(level, self.label_count as usize - level)
+        self.split(level, self.label_count() as usize - level)
     }
 
     pub fn to_lowercase(&mut self) {
-        let mut label_count = self.label_count;
+        let mut label_count = self.label_count();
         let mut p: usize = 0;
         while label_count > 0 {
             label_count -= 1;
             let mut label_len = self.raw[p];
             p += 1;
             while label_len > 0 {
-                self.raw[p] = lower_caes(self.raw[p] as usize);
+                self.raw[p] = lower_case(self.raw[p] as usize);
                 p += 1;
                 label_len -= 1;
             }
@@ -663,131 +512,132 @@ impl Name {
     }
 
     pub fn strip_left(&self, label_count: usize) -> Name {
-        assert!(label_count < (self.label_count as usize));
+        assert!(label_count < (self.label_count() as usize));
 
         if label_count == 0 {
             return self.clone();
         }
 
-        let new_label_count = (self.label_count as usize) - label_count;
+        let new_label_count = (self.label_count() as usize) - label_count;
         let mut offsets = Vec::with_capacity(new_label_count);
         offsets.extend_from_slice(&self.offsets[label_count..]);
         let start_pos = self.offsets[label_count] as usize;
         for i in 0..new_label_count {
             offsets[i] -= start_pos as u8;
         }
-        let new_length = self.length as usize - start_pos;
+        let new_length = self.len() as usize - start_pos;
         let mut raw = Vec::with_capacity(new_length);
         raw.extend_from_slice(&self.raw[start_pos..]);
-        Name {
-            length: new_length as u8,
-            label_count: new_label_count as u8,
-            raw: raw,
-            offsets: offsets,
-        }
+        Name { raw, offsets }
     }
 
     pub fn to_ancestor(mut self, label_count: usize) -> Name {
-        assert!(label_count < (self.label_count as usize));
+        assert!(label_count < (self.label_count() as usize));
 
         if label_count == 0 {
             return self;
         }
 
-        let new_label_count = (self.label_count as usize) - label_count;
+        let new_label_count = (self.label_count() as usize) - label_count;
         let start_pos = self.offsets[label_count] as usize;
         self.offsets = self.offsets.split_off(label_count);
         for i in 0..new_label_count {
             self.offsets[i] -= start_pos as u8;
         }
-        let new_length = self.length as usize - start_pos;
         self.raw = self.raw.split_off(start_pos);
-        self.label_count = new_label_count as u8;
-        self.length = new_length as u8;
         self
     }
 
-
-    pub fn clone(&self) -> Name {
-        return Name {
-            length: self.length,
-            label_count: self.label_count,
-            raw: self.raw.clone(),
-            offsets: self.offsets.clone(),
-        };
-    }
-
     pub fn strip_right(&self, label_count: usize) -> Name {
-        assert!(label_count < self.label_count as usize);
+        assert!(label_count < self.label_count() as usize);
 
         if label_count == 0 {
             return self.clone();
         }
 
-        let new_label_count = self.label_count as usize - label_count;
+        let new_label_count = self.label_count() as usize - label_count;
         let end_label = new_label_count - 1;
         let end_pos = self.offsets[end_label] as usize;
         let mut raw = Vec::with_capacity(end_pos + 1);
-        raw.extend_from_slice(&self.raw[0..end_pos + 1]);
+        raw.extend_from_slice(&self.raw[0..=end_pos]);
         raw[end_pos] = 0;
 
         let mut offsets = Vec::with_capacity(new_label_count);
-        offsets.extend_from_slice(&self.offsets[0..end_label + 1]);
-        Name {
-            length: end_pos as u8 + 1,
-            label_count: new_label_count as u8,
-            raw: raw,
-            offsets: offsets,
-        }
+        offsets.extend_from_slice(&self.offsets[0..=end_label]);
+        Name { raw, offsets }
     }
 
     pub fn to_child(mut self, label_count: usize) -> Name {
-        assert!(label_count < self.label_count as usize);
+        assert!(label_count < self.label_count() as usize);
 
         if label_count == 0 {
             return self;
         }
 
-        let new_label_count = self.label_count as usize - label_count;
+        let new_label_count = self.label_count() as usize - label_count;
         let end_label = new_label_count - 1;
         let end_pos = self.offsets[end_label] as usize;
-        self.raw.split_off(end_pos+1);
+        self.raw.split_off(end_pos + 1);
         self.raw[end_pos] = 0;
-        self.offsets.split_off(new_label_count+1);
-        self.length = (end_pos + 1) as u8;
-        self.label_count = new_label_count as u8;
+        self.offsets.split_off(new_label_count);
         self
     }
 
-    pub fn hash(&self, case_sensitive: bool) -> u32 {
-        hash_raw(self.raw.as_slice(), case_sensitive)
-    }
-
     pub fn is_subdomain(&self, parent: &Name) -> bool {
-        if self.length < parent.length || self.label_count < parent.label_count {
+        if self.len() < parent.len() || self.label_count() < parent.label_count() {
             return false;
         }
 
-        let mut i = self.length - 1;
-        let mut j = parent.length - 1;
+        let mut i = self.len() - 1;
+        let mut j = parent.len() - 1;
         while j > 0 {
-            if lower_caes(parent.raw[j as usize] as usize)
-                != lower_caes(self.raw[i as usize] as usize)
+            if lower_case(parent.raw[j as usize] as usize)
+                != lower_case(self.raw[i as usize] as usize)
             {
                 return false;
             }
             j -= 1;
             i -= 1;
         }
-        return true;
+        true
     }
 
+    pub fn is_wildcard(&self) -> bool {
+        if self.raw.len() < 3 {
+            false
+        } else if self.offsets.len() < 2 || self.offsets[1] != 2 {
+            false
+        } else {
+            self.raw[0] == 1 && self.raw[1] == b'*'
+        }
+    }
+
+    #[inline]
+    pub fn is_root(&self) -> bool {
+        self.raw.len() == 1 && self.raw[0] == 0
+    }
+
+    #[inline]
     pub fn raw_data(&self) -> &[u8] {
         self.raw.as_slice()
     }
 
+    #[inline]
     pub fn offsets(&self) -> &[u8] {
         self.offsets.as_slice()
+    }
+}
+
+impl FromStr for Name {
+    type Err = failure::Error;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        Name::new(s)
+    }
+}
+
+impl fmt::Debug for Name {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string())
     }
 }
 
@@ -797,14 +647,14 @@ impl fmt::Display for Name {
     }
 }
 
-impl cmp::PartialEq for Name {
+impl PartialEq for Name {
     fn eq(&self, other: &Name) -> bool {
-        if self.length != other.length || self.label_count != other.label_count {
+        if self.len() != other.len() || self.label_count() != other.label_count() {
             return false;
         }
 
         let mut pos = 0;
-        let mut l = self.label_count;
+        let mut l = self.label_count();
         while l > 0 {
             let mut count = self.raw[pos as usize];
             if count != other.raw[pos as usize] {
@@ -815,8 +665,8 @@ impl cmp::PartialEq for Name {
 
             while count > 0 {
                 count -= 1;
-                if lower_caes(self.raw[pos as usize] as usize)
-                    != lower_caes(other.raw[pos as usize] as usize)
+                if lower_case(self.raw[pos as usize] as usize)
+                    != lower_case(other.raw[pos as usize] as usize)
                 {
                     return false;
                 }
@@ -829,23 +679,31 @@ impl cmp::PartialEq for Name {
     }
 }
 
-impl cmp::Eq for Name {}
+impl Eq for Name {}
 
-impl cmp::PartialOrd for Name {
-    fn partial_cmp(&self, other: &Name) -> Option<cmp::Ordering> {
+impl PartialOrd for Name {
+    fn partial_cmp(&self, other: &Name) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl cmp::Ord for Name {
-    fn cmp(&self, other: &Name) -> cmp::Ordering {
-        let relation = self.get_relation(other, false);
+impl Ord for Name {
+    fn cmp(&self, other: &Name) -> Ordering {
+        let relation = self.get_relation(other);
         if relation.order < 0 {
-            cmp::Ordering::Less
+            Ordering::Less
         } else if relation.order > 0 {
-            cmp::Ordering::Greater
+            Ordering::Greater
         } else {
-            cmp::Ordering::Equal
+            Ordering::Equal
+        }
+    }
+}
+
+impl Hash for Name {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for c in self.raw.as_slice() {
+            state.write_u8(lower_case(*c as usize));
         }
     }
 }
@@ -856,18 +714,18 @@ mod test {
 
     #[test]
     fn test_name_concat() {
-        let www_knet_cn = Name::new("www.knet.Cn", true).unwrap();
-        let www_knet = Name::new("www.knet", true).unwrap();
-        let cn = Name::new("cn", true).unwrap();
+        let www_knet_cn = Name::new("www.knet.Cn").unwrap();
+        let www_knet = Name::new("www.knet").unwrap();
+        let cn = Name::new("cn").unwrap();
 
-        let relation = www_knet_cn.get_relation(&www_knet.concat(&cn).unwrap(), false);
+        let relation = www_knet_cn.get_relation(&www_knet.concat(&cn).unwrap());
         assert_eq!(relation.order, 0);
         assert_eq!(relation.common_label_count, 4);
         assert_eq!(relation.relation, NameRelation::Equal);
 
         assert_eq!(
             www_knet_cn.reverse().to_string(),
-            "cn.knet.www.".to_string()
+            "Cn.knet.www.".to_string()
         );
 
         assert_eq!(
@@ -876,28 +734,32 @@ mod test {
         );
         assert_eq!(
             www_knet_cn.split(0, 4).unwrap().to_string(),
-            "www.knet.cn.".to_string()
+            "www.knet.Cn.".to_string()
         );
         assert_eq!(
             www_knet_cn.split(1, 3).unwrap().to_string(),
-            "knet.cn.".to_string()
+            "knet.Cn.".to_string()
         );
         assert_eq!(
             www_knet_cn.split(1, 2).unwrap().to_string(),
-            "knet.cn.".to_string()
+            "knet.Cn.".to_string()
+        );
+        assert_eq!(
+            www_knet_cn.split(1, 1).unwrap().to_string(),
+            "knet.".to_string()
         );
 
         assert_eq!(
             www_knet_cn.parent(0).unwrap().to_string(),
-            "www.knet.cn.".to_string()
+            "www.knet.Cn.".to_string()
         );
         assert_eq!(
             www_knet_cn.parent(1).unwrap().to_string(),
-            "knet.cn.".to_string()
+            "knet.Cn.".to_string()
         );
         assert_eq!(
             www_knet_cn.parent(2).unwrap().to_string(),
-            "cn.".to_string()
+            "Cn.".to_string()
         );
         assert_eq!(www_knet_cn.parent(3).unwrap().to_string(), ".".to_string());
         assert!(www_knet_cn.parent(4).is_err())
@@ -905,97 +767,89 @@ mod test {
 
     #[test]
     fn test_name_compare() {
-        let www_knet_cn_mix_case = Name::new("www.KNET.cN", false).unwrap();
-        let www_knet_cn = Name::new("www.knet.cn.", true).unwrap();
-        let relation = www_knet_cn.get_relation(&www_knet_cn_mix_case, false);
+        let www_knet_cn_mix_case = Name::new("www.KNET.cN").unwrap();
+        let www_knet_cn = Name::new("www.knet.cn.").unwrap();
+        let relation = www_knet_cn.get_relation(&www_knet_cn_mix_case);
         assert_eq!(relation.order, 0);
         assert_eq!(relation.common_label_count, 4);
         assert_eq!(relation.relation, NameRelation::Equal);
 
-        let relation = www_knet_cn.get_relation(&www_knet_cn_mix_case, true);
-        assert!(relation.order > 0);
-        assert_eq!(relation.common_label_count, 1);
-        assert_eq!(relation.relation, NameRelation::None);
-
-        let www_knet_com = Name::new("www.knet.com", true).unwrap();
-        let relation = www_knet_cn.get_relation(&www_knet_com, false);
+        let www_knet_com = Name::new("www.knet.com").unwrap();
+        let relation = www_knet_cn.get_relation(&www_knet_com);
         assert!(relation.order < 0);
         assert_eq!(relation.common_label_count, 1);
-        assert_eq!(relation.relation, NameRelation::None);
+        assert_eq!(relation.relation, NameRelation::CommonAncestor);
 
-        let baidu_com = Name::new("baidu.com.", true).unwrap();
-        let www_baidu_com = Name::new("www.baidu.com", true).unwrap();
-        let relation = baidu_com.get_relation(&www_baidu_com, false);
+        let baidu_com = Name::new("baidu.com.").unwrap();
+        let www_baidu_com = Name::new("www.baidu.com").unwrap();
+        let relation = baidu_com.get_relation(&www_baidu_com);
         assert!(relation.order < 0);
         assert_eq!(relation.common_label_count, 3);
         assert_eq!(relation.relation, NameRelation::SuperDomain);
+
+        let range1 = Name::new("f14OMOZF16PGI-Wh2FGVXQ8I6Ma8NFuX3yH.UlG5SSbTOzya-acxXEK0W9D4pewmpEyhJ5VMQT1qdDk5xUOZo.3Go5Nbx0-wJBKnOHobRncMDVWqpekEBMYWaa1RChZelAqqIENfv-EGh.YpG6Natyn0av0VQd2aSmf05bt5WkkZao-4O9hU8ZO2WNgVu2C6sOGraLdZPg.p6S.CkQ.NM.").unwrap();
+        let range2 = Name::new("qI0.BUHM.n.").unwrap();
+        let relation = range1.get_relation(&range2);
+        assert!(relation.order > 0);
     }
 
     #[test]
     fn test_name_strip() {
-        let www_knet_cn_mix_case = Name::new("www.KNET.cN", true).unwrap();
-        assert_eq!(
-            &www_knet_cn_mix_case.strip_left(1).to_string(),
-            "knet.cn."
-        );
-        assert_eq!(
-            &www_knet_cn_mix_case.strip_left(2).to_string(),
-            "cn."
-        );
-        assert_eq!(
-            &www_knet_cn_mix_case.strip_left(3).to_string(),
-            "."
-        );
+        let www_knet_cn_mix_case = Name::new("www.KNET.cN").unwrap();
+        assert_eq!(&www_knet_cn_mix_case.strip_left(1).to_string(), "KNET.cN.");
+        assert_eq!(&www_knet_cn_mix_case.strip_left(2).to_string(), "cN.");
+        assert_eq!(&www_knet_cn_mix_case.strip_left(3).to_string(), ".");
         assert_eq!(
             &www_knet_cn_mix_case.strip_right(1).to_string(),
-            "www.knet."
+            "www.KNET."
         );
-        assert_eq!(
-            &www_knet_cn_mix_case.strip_right(2).to_string(),
-            "www."
-        );
-        assert_eq!(
-            &www_knet_cn_mix_case.strip_right(3).to_string(),
-            "."
-        );
+        assert_eq!(&www_knet_cn_mix_case.strip_right(2).to_string(), "www.");
+        assert_eq!(&www_knet_cn_mix_case.strip_right(3).to_string(), ".");
 
         let mut name = www_knet_cn_mix_case.clone();
-        let ancestors = ["knet.cn.", "cn.", "."];
+        let ancestors = ["KNET.cN.", "cN.", "."];
         for i in 0..3 {
             name = name.to_ancestor(1);
-            assert_eq!(
-                name.to_string(),
-                ancestors[i]
-            );
+            assert_eq!(name.to_string(), ancestors[i]);
         }
 
         let mut name = www_knet_cn_mix_case.clone();
-        let children = ["www.knet.", "www.", "."];
+        let children = ["www.KNET.", "www.", "."];
         for i in 0..3 {
             name = name.to_child(1);
-            assert_eq!(
-                name.to_string(),
-                children[i]
-            );
+            assert_eq!(name.to_string(), children[i]);
         }
+    }
+
+    fn hash_helper(name: &Name) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        let mut hasher = DefaultHasher::new();
+        name.hash(&mut hasher);
+        hasher.finish()
     }
 
     #[test]
     fn test_name_hash() {
-        let name1 = Name::new("wwwnnnnnnnnnnnnn.KNET.cNNNNNNNNN", false).unwrap();
-        let name2 = Name::new("wwwnnnnnnnnnnnnn.KNET.cNNNNNNNNn", false).unwrap();
-        let name3 = Name::new("wwwnnnnnnnnnnnnn.KNET.cNNNNNNNNN.baidu.com.cn.net", false).unwrap();
-        assert_eq!(&name1.hash(false), &name2.hash(false));
-        assert_ne!(&name1.hash(false), &name3.hash(false));
+        let name1 = Name::new("wwwnnnnnnnnnnnnn.KNET.cNNNNNNNNN").unwrap();
+        let name2 = Name::new("wwwnnnnnnnnnnnnn.KNET.cNNNNNNNNn").unwrap();
+        let name3 = Name::new("wwwnnnnnnnnnnnnn.KNET.cNNNNNNNNN.baidu.com.cn.net").unwrap();
+        assert_eq!(hash_helper(&name1), hash_helper(&name2));
+        assert_ne!(hash_helper(&name1), hash_helper(&name3));
+    }
+
+    #[test]
+    fn test_short_name() {
+        let name = Name::new("c").unwrap();
+        assert_eq!(name.to_string(), "c.");
     }
 
     #[test]
     fn test_name_is_subdomain() {
-        let www_knet_cn = Name::new("www.knet.Cn", false).unwrap();
-        let www_knet = Name::new("www.knet", false).unwrap();
-        let knet_cn = Name::new("knet.Cn", false).unwrap();
-        let cn = Name::new("cn", false).unwrap();
-        let knet = Name::new("kNet", false).unwrap();
+        let www_knet_cn = Name::new("www.knet.Cn").unwrap();
+        let www_knet = Name::new("www.knet").unwrap();
+        let knet_cn = Name::new("knet.Cn").unwrap();
+        let cn = Name::new("cn").unwrap();
+        let knet = Name::new("kNet").unwrap();
         let root = root();
         assert!(
             www_knet_cn.is_subdomain(&knet_cn)
@@ -1013,5 +867,35 @@ mod test {
                 && root.is_subdomain(&cn) == false
                 && www_knet.is_subdomain(&www_knet_cn) == false
         );
+    }
+
+    #[test]
+    fn test_is_wildcard() {
+        let wildcard_names = vec!["*", "*.a", "*.*.a"];
+        let not_wildcard_names = vec!["a.*", "a.*.a", "a.*.*.a"];
+        for name_str in wildcard_names {
+            let name = Name::new(name_str).unwrap();
+            assert!(name.is_wildcard());
+        }
+        for name_str in not_wildcard_names {
+            let name = Name::new(name_str).unwrap();
+            assert!(name.is_wildcard() == false);
+        }
+    }
+
+    #[test]
+    fn test_is_root() {
+        let root_names = vec!["."];
+        let not_root_names = vec!["a", "a.a"];
+        for name_str in root_names {
+            let name = Name::new(name_str).unwrap();
+            assert!(name.is_root());
+        }
+        for name_str in not_root_names {
+            let name = Name::new(name_str).unwrap();
+            assert!(name.is_root() == false);
+        }
+        let name = Name::new("a.a.a").unwrap();
+        assert!(name.parent(3).unwrap().is_root());
     }
 }

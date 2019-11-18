@@ -1,16 +1,22 @@
-use error::Error;
-use message_render::MessageRender;
-use name::Name;
-use util::{InputBuffer, OutputBuffer};
+use crate::message_render::MessageRender;
+use crate::name::Name;
+use crate::rdatafield_string_parser::Parser;
+use crate::util::{InputBuffer, OutputBuffer};
+use failure::Result;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PTR {
-    name: Name,
+    pub name: Name,
 }
 
 impl PTR {
-    pub fn from_wire(buf: &mut InputBuffer, _len: u16) -> Result<Self, Error> {
-        Name::from_wire(buf, false).map(|name| PTR { name: name })
+    pub fn from_wire(buf: &mut InputBuffer, _len: u16) -> Result<Self> {
+        Name::from_wire(buf).map(|name| PTR { name })
+    }
+
+    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+        let name = iter.next_field::<Name>("PTR", "Name")?;
+        Ok(PTR { name })
     }
 
     pub fn rend(&self, render: &mut MessageRender) {

@@ -22,8 +22,8 @@ impl Opcode {
         }
     }
 
-    pub fn to_u8(&self) -> u8 {
-        match *self {
+    pub fn to_u8(self) -> u8 {
+        match self {
             Opcode::Query => 0,
             Opcode::IQuery => 1,
             Opcode::Status => 2,
@@ -33,8 +33,8 @@ impl Opcode {
         }
     }
 
-    fn to_string(&self) -> &'static str {
-        match *self {
+    pub fn to_str(self) -> &'static str {
+        match self {
             Opcode::Query => "QUERY",
             Opcode::IQuery => "IQUERY",
             Opcode::Status => "STATUS",
@@ -47,7 +47,7 @@ impl Opcode {
 
 impl fmt::Display for Opcode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.to_string())
+        f.write_str(self.to_str())
     }
 }
 
@@ -58,5 +58,7 @@ mod test {
     #[test]
     pub fn test_rcode_equal() {
         assert_eq!(Opcode::Query.to_u8(), 0);
+        assert_eq!(Opcode::Query.to_string(), "QUERY");
+        assert_eq!(Opcode::Notify.to_string(), "NOTIFY");
     }
 }

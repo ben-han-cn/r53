@@ -1,9 +1,9 @@
-use edns::Edns;
-use header_flag::HeaderFlag;
-use message::{Message, Section, SectionType};
-use opcode::Opcode;
-use rcode::Rcode;
-use rrset::RRset;
+use crate::edns::Edns;
+use crate::header_flag::HeaderFlag;
+use crate::message::{Message, Section, SectionType};
+use crate::opcode::Opcode;
+use crate::rcode::Rcode;
+use crate::rrset::RRset;
 
 pub struct MessageBuilder<'a> {
     msg: &'a mut Message,
@@ -11,7 +11,7 @@ pub struct MessageBuilder<'a> {
 
 impl<'a> MessageBuilder<'a> {
     pub fn new(msg: &'a mut Message) -> Self {
-        MessageBuilder { msg: msg }
+        MessageBuilder { msg }
     }
 
     pub fn id(&mut self, id: u16) -> &mut Self {
@@ -53,16 +53,20 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn add_auth(&mut self, rrset: RRset) -> &mut Self {
-        self.add_rrset_to_section(SectionType::Auth, rrset)
+        self.add_rrset_to_section(SectionType::Authority, rrset)
     }
 
     pub fn add_additional(&mut self, rrset: RRset) -> &mut Self {
         self.add_rrset_to_section(SectionType::Additional, rrset)
     }
 
-    fn add_rrset_to_section(&mut self, section: SectionType, rrset: RRset) -> &mut Self {
-        if let Some(ref mut rrsets) = self.msg.sections[section as usize].0 {
-            rrsets.push(rrset);
+    fn add_rrset_to_section(&mut self, section: SectionType, mut rrset: RRset) -> &mut Self {
+        if let Some(ref mut rrsets) = self.msg.section_mut(section) {
+            if let Some(index) = rrsets.iter().position(|old| old.is_same_rrset(&rrset)) {
+                rrsets[index].rdatas.append(&mut rrset.rdatas);
+            } else {
+                rrsets.push(rrset);
+            }
         } else {
             self.msg.sections[section as usize] = Section(Some(vec![rrset]));
         }

@@ -1,14 +1,14 @@
-use message_render::MessageRender;
-use rr_class::RRClass;
-use rr_type::RRType;
-use rrset::{RRTtl, RRset};
+use crate::message_render::MessageRender;
+use crate::rr_class::RRClass;
+use crate::rr_type::RRType;
+use crate::rrset::{RRTtl, RRset};
+use crate::util::OutputBuffer;
 use std::fmt::Write;
-use util::OutputBuffer;
 
 const VERSION_SHIFT: u32 = 16;
 const EXTRCODE_SHIFT: u32 = 24;
-const VERSION_MASK: u32 = 0x00ff0000;
-const EXTFLAG_DO: u32 = 0x00008000;
+const VERSION_MASK: u32 = 0x00ff_0000;
+const EXTFLAG_DO: u32 = 0x0000_8000;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Edns {
@@ -42,13 +42,13 @@ impl Edns {
         if self.dnssec_aware {
             write!(&mut edns_str, "flags: do; ").unwrap();
         }
-        write!(&mut edns_str, "udp: {}\n", self.udp_size).unwrap();
+        writeln!(&mut edns_str, "udp: {}", self.udp_size).unwrap();
         edns_str
     }
 
     pub fn rend(&self, render: &mut MessageRender) {
-        let mut flags = (self.extened_rcode as u32) << EXTRCODE_SHIFT;
-        flags |= ((self.versoin as u32) << VERSION_SHIFT) & VERSION_MASK;
+        let mut flags = u32::from(self.extened_rcode) << EXTRCODE_SHIFT;
+        flags |= (u32::from(self.versoin) << VERSION_SHIFT) & VERSION_MASK;
         if self.dnssec_aware {
             flags |= EXTFLAG_DO;
         }
@@ -61,8 +61,8 @@ impl Edns {
     }
 
     pub fn to_wire(&self, buf: &mut OutputBuffer) {
-        let mut flags = (self.extened_rcode as u32) << EXTRCODE_SHIFT;
-        flags |= ((self.versoin as u32) << VERSION_SHIFT) & VERSION_MASK;
+        let mut flags = u32::from(self.extened_rcode) << EXTRCODE_SHIFT;
+        flags |= (u32::from(self.versoin) << VERSION_SHIFT) & VERSION_MASK;
         if self.dnssec_aware {
             flags |= EXTFLAG_DO;
         }
@@ -84,9 +84,8 @@ impl Edns {
 
 #[cfg(test)]
 mod test {
-    use super::super::util::InputBuffer;
     use super::*;
-    use util::hex::from_hex;
+    use crate::util::{hex::from_hex, InputBuffer};
 
     #[test]
     fn test_edns_to_wire() {

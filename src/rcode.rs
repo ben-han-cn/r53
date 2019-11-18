@@ -5,7 +5,7 @@ pub enum Rcode {
     NoError,
     FormErr,
     ServFail,
-    NXDomian,
+    NXDomain,
     NotImp,
     Refused,
     YXDomain,
@@ -22,7 +22,7 @@ impl Rcode {
             0 => Rcode::NoError,
             1 => Rcode::FormErr,
             2 => Rcode::ServFail,
-            3 => Rcode::NXDomian,
+            3 => Rcode::NXDomain,
             4 => Rcode::NotImp,
             5 => Rcode::Refused,
             6 => Rcode::YXDomain,
@@ -34,12 +34,12 @@ impl Rcode {
         }
     }
 
-    pub fn to_u8(&self) -> u8 {
-        match *self {
+    pub fn to_u8(self) -> u8 {
+        match self {
             Rcode::NoError => 0,
             Rcode::FormErr => 1,
             Rcode::ServFail => 2,
-            Rcode::NXDomian => 3,
+            Rcode::NXDomain => 3,
             Rcode::NotImp => 4,
             Rcode::Refused => 5,
             Rcode::YXDomain => 6,
@@ -51,12 +51,12 @@ impl Rcode {
         }
     }
 
-    fn to_string(&self) -> &'static str {
-        match *self {
+    pub fn to_str(self) -> &'static str {
+        match self {
             Rcode::NoError => "NOERROR",
             Rcode::FormErr => "FORMERR",
             Rcode::ServFail => "SERVFAIL",
-            Rcode::NXDomian => "NXDOMAIN",
+            Rcode::NXDomain => "NXDOMAIN",
             Rcode::NotImp => "NOTIMP",
             Rcode::Refused => "REFUSED",
             Rcode::YXDomain => "YXDOMAIN",
@@ -71,7 +71,7 @@ impl Rcode {
 
 impl fmt::Display for Rcode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.to_string())
+        f.write_str(self.to_str())
     }
 }
 
@@ -82,5 +82,6 @@ mod test {
     #[test]
     pub fn test_rcode_equal() {
         assert_eq!(Rcode::NoError.to_u8(), 0);
+        assert_eq!(Rcode::NoError.to_string(), "NOERROR");
     }
 }

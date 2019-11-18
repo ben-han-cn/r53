@@ -15,6 +15,10 @@ impl OutputBuffer {
         self.data.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.len() == 0
+    }
+
     pub fn capacity(&self) -> usize {
         self.data.capacity()
     }
@@ -53,7 +57,7 @@ impl OutputBuffer {
     }
 
     pub fn write_u8_at(&mut self, d: u8, pos: usize) {
-        assert!(pos + 1 <= self.len());
+        assert!(pos < self.len());
         self.data[pos] = d;
     }
 
@@ -69,10 +73,10 @@ impl OutputBuffer {
     }
 
     pub fn write_u32(&mut self, d: u32) {
-        self.data.push(((d & 0xff000000) >> 24) as u8);
-        self.data.push(((d & 0x00ff0000) >> 16) as u8);
-        self.data.push(((d & 0x0000ff00) >> 8) as u8);
-        self.data.push((d & 0x000000ff) as u8);
+        self.data.push(((d & 0xff00_0000) >> 24) as u8);
+        self.data.push(((d & 0x00ff_0000) >> 16) as u8);
+        self.data.push(((d & 0x0000_ff00) >> 8) as u8);
+        self.data.push((d & 0x0000_00ff) as u8);
     }
 
     pub fn write_bytes(&mut self, data: &[u8]) {
