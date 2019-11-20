@@ -2,6 +2,7 @@ use crate::message_render::MessageRender;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 use std::net::Ipv6Addr;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -34,9 +35,11 @@ impl AAAA {
     pub fn to_wire(&self, buf: &mut OutputBuffer) {
         self.host.octets().iter().for_each(|x| buf.write_u8(*x));
     }
+}
 
-    pub fn to_string(&self) -> String {
-        format!("{}", self.host)
+impl fmt::Display for AAAA {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.host)
     }
 }
 

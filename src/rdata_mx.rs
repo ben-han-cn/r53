@@ -3,6 +3,7 @@ use crate::name::Name;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct MX {
@@ -32,9 +33,11 @@ impl MX {
         buf.write_u16(self.preference);
         self.name.to_wire(buf);
     }
+}
 
-    pub fn to_string(&self) -> String {
-        [self.preference.to_string(), self.name.to_string()].join(" ")
+impl fmt::Display for MX {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {}", self.preference, self.name)
     }
 }
 

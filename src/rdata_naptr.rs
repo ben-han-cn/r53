@@ -3,6 +3,7 @@ use crate::name::Name;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct NAPTR {
@@ -45,17 +46,6 @@ impl NAPTR {
         self.replacement.to_wire(buf);
     }
 
-    pub fn to_string(&self) -> String {
-        [
-            self.order.to_string(),
-            self.preference.to_string(),
-            self.flags.to_string(),
-            self.services.to_string(),
-            self.replacement.to_string(),
-        ]
-        .join(" ")
-    }
-
     pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let order = iter.next_field::<u16>("NAPTR", "order")?;
         let preference = iter.next_field::<u16>("NAPTR", "preference")?;
@@ -69,6 +59,16 @@ impl NAPTR {
             services,
             replacement,
         })
+    }
+}
+
+impl fmt::Display for NAPTR {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {} {} {} {}",
+            self.order, self.preference, self.flags, self.services, self.replacement
+        )
     }
 }
 

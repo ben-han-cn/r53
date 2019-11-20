@@ -2,6 +2,7 @@ use crate::message_render::MessageRender;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 use std::net::Ipv4Addr;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -39,9 +40,11 @@ impl A {
         buf.write_u8(segments[2]);
         buf.write_u8(segments[3]);
     }
+}
 
-    pub fn to_string(&self) -> String {
-        format!("{}", self.host)
+impl fmt::Display for A {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.host)
     }
 }
 

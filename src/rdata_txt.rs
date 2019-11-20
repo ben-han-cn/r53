@@ -2,6 +2,7 @@ use crate::message_render::MessageRender;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 use std::str::from_utf8;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -40,14 +41,14 @@ impl TXT {
             buf.write_bytes(data.as_slice());
         }
     }
+}
 
-    pub fn to_string(&self) -> String {
-        self.data.iter().fold(String::new(), |mut s, data| {
-            s.push_str("\"");
-            s.push_str(from_utf8(data).unwrap());
-            s.push_str("\" ");
-            s
-        })
+impl fmt::Display for TXT {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.data
+            .iter()
+            .map(|data| write!(f, "\"{}\" ", from_utf8(data).unwrap()))
+            .collect()
     }
 }
 

@@ -3,6 +3,7 @@ use crate::name::Name;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SRV {
@@ -40,16 +41,6 @@ impl SRV {
         self.target.to_wire(buf);
     }
 
-    pub fn to_string(&self) -> String {
-        [
-            self.priority.to_string(),
-            self.weight.to_string(),
-            self.port.to_string(),
-            self.target.to_string(),
-        ]
-        .join(" ")
-    }
-
     pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let priority = iter.next_field::<u16>("SRV", "priority")?;
         let weight = iter.next_field::<u16>("SRV", "weight")?;
@@ -61,6 +52,15 @@ impl SRV {
             port,
             target,
         })
+    }
+}
+impl fmt::Display for SRV {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {} {} {}",
+            self.priority, self.weight, self.port, self.target,
+        )
     }
 }
 

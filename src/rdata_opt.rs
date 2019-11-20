@@ -3,6 +3,7 @@ use crate::rdatafield_string_parser::Parser;
 use crate::util::hex::to_hex;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct OPT {
@@ -24,13 +25,15 @@ impl OPT {
         buf.write_bytes(self.data.as_slice());
     }
 
-    pub fn to_string(&self) -> String {
-        to_hex(&self.data)
-    }
-
     pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let data = iter.next_hex("OPT", "data")?;
         Ok(OPT { data })
+    }
+}
+
+impl fmt::Display for OPT {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", to_hex(&self.data))
     }
 }
 

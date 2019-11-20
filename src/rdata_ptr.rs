@@ -3,6 +3,7 @@ use crate::name::Name;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PTR {
@@ -26,9 +27,11 @@ impl PTR {
     pub fn to_wire(&self, buf: &mut OutputBuffer) {
         self.name.to_wire(buf);
     }
+}
 
-    pub fn to_string(&self) -> String {
-        self.name.to_string()
+impl fmt::Display for PTR {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 

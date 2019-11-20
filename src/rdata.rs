@@ -132,20 +132,19 @@ impl RData {
 
 impl fmt::Display for RData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match *self {
-            RData::A(ref a) => a.to_string(),
-            RData::AAAA(ref aaaa) => aaaa.to_string(),
-            RData::NS(ref ns) => ns.to_string(),
-            RData::CName(ref cname) => cname.to_string(),
-            RData::SOA(ref soa) => soa.to_string(),
-            RData::PTR(ref ptr) => ptr.to_string(),
-            RData::MX(ref mx) => mx.to_string(),
-            RData::NAPTR(ref naptr) => naptr.to_string(),
-            RData::DName(ref dname) => dname.to_string(),
-            RData::OPT(ref opt) => opt.to_string(),
-            RData::SRV(ref srv) => srv.to_string(),
-            RData::TXT(ref txt) => txt.to_string(),
-        };
-        write!(f, "{}", s)
+        match *self {
+            RData::A(ref a) => write!(f, "{}", a),
+            RData::AAAA(ref aaaa) => write!(f, "{}", aaaa),
+            RData::NS(ref ns) => write!(f, "{}", ns),
+            RData::CName(ref cname) => write!(f, "{}", cname),
+            RData::SOA(ref soa) => write!(f, "{}", soa),
+            RData::PTR(ref ptr) => write!(f, "{}", ptr),
+            RData::MX(ref mx) => write!(f, "{}", mx),
+            RData::NAPTR(ref naptr) => write!(f, "{}", naptr),
+            RData::DName(ref dname) => write!(f, "{}", dname),
+            RData::OPT(ref opt) => write!(f, "{}", opt),
+            RData::SRV(ref srv) => write!(f, "{}", srv),
+            RData::TXT(ref txt) => write!(f, "{}", txt),
+        }
     }
 }
