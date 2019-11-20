@@ -68,7 +68,7 @@ fn is_digit(c: char) -> bool {
     c >= '0' && c <= '9'
 }
 
-static DIGITAL_VALUES: &'static [i8] = &[
+static DIGITAL_VALUES: &[i8] = &[
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, // 16
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, // 32
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, // 48
@@ -90,7 +90,7 @@ fn digitvalue(c: usize) -> i8 {
     DIGITAL_VALUES[c]
 }
 
-pub static MAP_TO_LOWER: &'static [u8] = &[
+pub static MAP_TO_LOWER: &[u8] = &[
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
     0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
     0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
@@ -349,7 +349,7 @@ impl Name {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        return self.len() == 0;
+        self.len() == 0
     }
 
     #[inline]
@@ -363,10 +363,6 @@ impl Name {
 
     pub fn rend(&self, render: &mut MessageRender) {
         render.write_name(self, true);
-    }
-
-    pub fn to_string(&self) -> String {
-        LabelSlice::from_name(self).to_string()
     }
 
     pub fn into_label_sequence(mut self, first_label: usize, last_label: usize) -> LabelSequence {
@@ -471,8 +467,8 @@ impl Name {
             let start_pos = offsets[0] as usize;
             let mut raw = Vec::with_capacity(self.len() as usize - start_pos);
             raw.extend_from_slice(&self.raw[start_pos..]);
-            for i in 0..label_count {
-                offsets[i] -= first_offset;
+            for offset in offsets.iter_mut().take(label_count) {
+                *offset -= first_offset;
             }
             Ok(Name { raw, offsets })
         } else {
@@ -484,8 +480,8 @@ impl Name {
             );
 
             let first_offset = self.offsets[start_label];
-            for i in 0..=label_count {
-                offsets[i] -= first_offset;
+            for offset in offsets.iter_mut().take(label_count + 1) {
+                *offset -= first_offset;
             }
             raw.push(0);
             Ok(Name { raw, offsets })
@@ -496,7 +492,7 @@ impl Name {
         self.split(level, self.label_count() as usize - level)
     }
 
-    pub fn to_lowercase(&mut self) {
+    pub fn as_lowercase(&mut self) {
         let mut label_count = self.label_count();
         let mut p: usize = 0;
         while label_count > 0 {
@@ -522,8 +518,8 @@ impl Name {
         let mut offsets = Vec::with_capacity(new_label_count);
         offsets.extend_from_slice(&self.offsets[label_count..]);
         let start_pos = self.offsets[label_count] as usize;
-        for i in 0..new_label_count {
-            offsets[i] -= start_pos as u8;
+        for offset in offsets.iter_mut().take(new_label_count) {
+            *offset -= start_pos as u8;
         }
         let new_length = self.len() as usize - start_pos;
         let mut raw = Vec::with_capacity(new_length);
@@ -531,7 +527,7 @@ impl Name {
         Name { raw, offsets }
     }
 
-    pub fn to_ancestor(mut self, label_count: usize) -> Name {
+    pub fn into_ancestor(mut self, label_count: usize) -> Name {
         assert!(label_count < (self.label_count() as usize));
 
         if label_count == 0 {
@@ -567,7 +563,7 @@ impl Name {
         Name { raw, offsets }
     }
 
-    pub fn to_child(mut self, label_count: usize) -> Name {
+    pub fn into_child(mut self, label_count: usize) -> Name {
         assert!(label_count < self.label_count() as usize);
 
         if label_count == 0 {
@@ -603,9 +599,7 @@ impl Name {
     }
 
     pub fn is_wildcard(&self) -> bool {
-        if self.raw.len() < 3 {
-            false
-        } else if self.offsets.len() < 2 || self.offsets[1] != 2 {
+        if self.raw.len() < 3 || self.offsets.len() < 2 || self.offsets[1] != 2 {
             false
         } else {
             self.raw[0] == 1 && self.raw[1] == b'*'
@@ -643,7 +637,7 @@ impl fmt::Debug for Name {
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", LabelSlice::from_name(self))
     }
 }
 
@@ -809,14 +803,14 @@ mod test {
         let mut name = www_knet_cn_mix_case.clone();
         let ancestors = ["KNET.cN.", "cN.", "."];
         for i in 0..3 {
-            name = name.to_ancestor(1);
+            name = name.into_ancestor(1);
             assert_eq!(name.to_string(), ancestors[i]);
         }
 
         let mut name = www_knet_cn_mix_case.clone();
         let children = ["www.KNET.", "www.", "."];
         for i in 0..3 {
-            name = name.to_child(1);
+            name = name.into_child(1);
             assert_eq!(name.to_string(), children[i]);
         }
     }

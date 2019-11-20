@@ -16,6 +16,7 @@ use crate::rdatafield_string_parser::Parser;
 use crate::rr_type::RRType;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RData {
@@ -99,24 +100,7 @@ impl RData {
         }
     }
 
-    pub fn to_string(&self) -> String {
-        match *self {
-            RData::A(ref a) => a.to_string(),
-            RData::AAAA(ref aaaa) => aaaa.to_string(),
-            RData::NS(ref ns) => ns.to_string(),
-            RData::CName(ref cname) => cname.to_string(),
-            RData::SOA(ref soa) => soa.to_string(),
-            RData::PTR(ref ptr) => ptr.to_string(),
-            RData::MX(ref mx) => mx.to_string(),
-            RData::NAPTR(ref naptr) => naptr.to_string(),
-            RData::DName(ref dname) => dname.to_string(),
-            RData::OPT(ref opt) => opt.to_string(),
-            RData::SRV(ref srv) => srv.to_string(),
-            RData::TXT(ref txt) => txt.to_string(),
-        }
-    }
-
-    pub fn from_str<'a>(typ: RRType, s: &'a str) -> Result<Self> {
+    pub fn from_str(typ: RRType, s: &str) -> Result<Self> {
         let mut labels = Parser::new(s.trim());
         Self::from_parser(typ, &mut labels)
     }
@@ -143,5 +127,25 @@ impl RData {
             RRType::TXT => rdata_txt::TXT::from_str(rdata_str).map(|txt| RData::TXT(Box::new(txt))),
             _ => Err(DNSError::RRTypeIsNotSupport.into()),
         }
+    }
+}
+
+impl fmt::Display for RData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match *self {
+            RData::A(ref a) => a.to_string(),
+            RData::AAAA(ref aaaa) => aaaa.to_string(),
+            RData::NS(ref ns) => ns.to_string(),
+            RData::CName(ref cname) => cname.to_string(),
+            RData::SOA(ref soa) => soa.to_string(),
+            RData::PTR(ref ptr) => ptr.to_string(),
+            RData::MX(ref mx) => mx.to_string(),
+            RData::NAPTR(ref naptr) => naptr.to_string(),
+            RData::DName(ref dname) => dname.to_string(),
+            RData::OPT(ref opt) => opt.to_string(),
+            RData::SRV(ref srv) => srv.to_string(),
+            RData::TXT(ref txt) => txt.to_string(),
+        };
+        write!(f, "{}", s)
     }
 }

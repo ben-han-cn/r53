@@ -31,6 +31,10 @@ impl LabelSequence {
         self.data.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     pub fn equals(&self, other: &LabelSequence, case_sensitive: bool) -> bool {
         if self.len() != other.len() {
             false
@@ -71,12 +75,10 @@ impl LabelSequence {
                 *v -= data_offset;
             }
         } else {
-            let mut index = 0;
-            for v in &mut self.offsets {
-                if index >= start_label {
+            for (i, v) in (&mut self.offsets).iter_mut().enumerate() {
+                if i >= start_label {
                     *v -= data_offset;
                 }
-                index += 1;
             }
             let curr_label_value = offsets[0];
             for v in &mut offsets {
@@ -89,7 +91,7 @@ impl LabelSequence {
 
     pub fn concat_all(&self, suffixes: &[&LabelSequence]) -> Result<Name> {
         if self.is_absolute() {
-            if suffixes.len() == 0 {
+            if suffixes.is_empty() {
                 return Ok(Name::from_raw(self.data.clone(), self.offsets.clone()));
             } else {
                 return Err(DNSError::InvalidLabelSequnceConcatParam.into());
@@ -139,10 +141,6 @@ impl LabelSequence {
         Ok(Name::from_raw(data, offsets))
     }
 
-    pub fn to_string(&self) -> String {
-        LabelSlice::from_label_sequence(self).to_string()
-    }
-
     pub fn is_absolute(&self) -> bool {
         self.data[self.data.len() - 1] == 0
     }
@@ -179,7 +177,7 @@ impl Ord for LabelSequence {
 
 impl fmt::Display for LabelSequence {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", LabelSlice::from_label_sequence(self).to_string())
+        write!(f, "{}", LabelSlice::from_label_sequence(self))
     }
 }
 

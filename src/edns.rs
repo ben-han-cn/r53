@@ -3,7 +3,7 @@ use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::rrset::{RRTtl, RRset};
 use crate::util::OutputBuffer;
-use std::fmt::Write;
+use std::fmt;
 
 const VERSION_SHIFT: u32 = 16;
 const EXTRCODE_SHIFT: u32 = 24;
@@ -34,16 +34,6 @@ impl Edns {
             dnssec_aware: (flags & EXTFLAG_DO) != 0,
             options: None,
         }
-    }
-
-    pub fn to_string(&self) -> String {
-        let mut edns_str = String::new();
-        write!(&mut edns_str, "; EDNS: version: {}, ", self.versoin).unwrap();
-        if self.dnssec_aware {
-            write!(&mut edns_str, "flags: do; ").unwrap();
-        }
-        writeln!(&mut edns_str, "udp: {}", self.udp_size).unwrap();
-        edns_str
     }
 
     pub fn rend(&self, render: &mut MessageRender) {
@@ -79,6 +69,16 @@ impl Edns {
             Some(ref options) => options.len(),
             None => 1,
         }
+    }
+}
+
+impl fmt::Display for Edns {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "; EDNS: version: {}, ", self.versoin)?;
+        if self.dnssec_aware {
+            write!(f, "flags: do; ")?;
+        }
+        write!(f, "udp: {}", self.udp_size)
     }
 }
 

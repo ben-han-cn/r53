@@ -50,6 +50,11 @@ impl<'a> LabelSlice<'a> {
     }
 
     #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[inline]
     pub fn first_label(&self) -> usize {
         self.first_label
     }
@@ -156,8 +161,10 @@ impl<'a> LabelSlice<'a> {
         assert!(index < self.label_count());
         self.last_label -= index;
     }
+}
 
-    pub fn to_string(&self) -> String {
+impl<'a> fmt::Display for LabelSlice<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut buf = Vec::with_capacity(self.len());
         let special_char: Vec<u8> = vec![0x22, 0x28, 0x29, 0x2E, 0x3B, 0x5C, 0x40, 0x24]; //" ( ) . ; \\ @ $
         let mut i = 0;
@@ -193,20 +200,14 @@ impl<'a> LabelSlice<'a> {
             }
         }
 
-        unsafe { String::from_utf8_unchecked(buf) }
-    }
-}
-
-impl<'a> fmt::Display for LabelSlice<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", unsafe { String::from_utf8_unchecked(buf) })
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::name::{root, Name};
+    use crate::name::Name;
     #[test]
     fn test_label_slice_new() {
         //0377777705626169647503636f6d00

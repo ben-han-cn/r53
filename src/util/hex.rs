@@ -6,9 +6,9 @@ pub fn from_hex(hex_str: &str) -> Option<Vec<u8>> {
     for (_, byte) in hex_str.bytes().enumerate() {
         buf <<= 4;
         match byte {
-            b'A'...b'F' => buf |= byte - b'A' + 10,
-            b'a'...b'f' => buf |= byte - b'a' + 10,
-            b'0'...b'9' => buf |= byte - b'0',
+            b'A'..=b'F' => buf |= byte - b'A' + 10,
+            b'a'..=b'f' => buf |= byte - b'a' + 10,
+            b'0'..=b'9' => buf |= byte - b'0',
             b' ' | b'\r' | b'\n' | b'\t' => {
                 buf >>= 4;
                 continue;
@@ -28,7 +28,7 @@ pub fn from_hex(hex_str: &str) -> Option<Vec<u8>> {
     }
 }
 
-static CHARS: &'static [u8] = b"0123456789abcdef";
+static CHARS: &[u8] = b"0123456789abcdef";
 pub fn to_hex(data: &[u8]) -> String {
     let mut v = Vec::with_capacity(data.len() * 2);
     for &byte in data.iter() {

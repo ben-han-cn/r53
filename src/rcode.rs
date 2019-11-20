@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Rcode {
@@ -69,7 +69,7 @@ impl Rcode {
     }
 }
 
-impl fmt::Display for Rcode {
+impl Display for Rcode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(self.to_str())
     }

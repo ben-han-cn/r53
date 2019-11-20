@@ -4,6 +4,7 @@ use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Question {
@@ -31,14 +32,11 @@ impl Question {
         self.typ.to_wire(buf);
         self.class.to_wire(buf);
     }
+}
 
-    pub fn to_string(&self) -> String {
-        [
-            self.name.to_string(),
-            self.class.to_string(),
-            self.typ.to_string(),
-        ]
-        .join(" ")
+impl fmt::Display for Question {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {} {}", self.name, self.class, self.typ)
     }
 }
 

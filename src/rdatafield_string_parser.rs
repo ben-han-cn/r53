@@ -11,7 +11,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(raw: &'a str) -> Self {
-        debug_assert!(raw.len() > 0);
+        debug_assert!(!raw.is_empty());
 
         Parser {
             raw: raw.as_bytes(),
@@ -53,12 +53,12 @@ impl<'a> Parser<'a> {
             let mut in_quote = true;
             let mut start_escape = false;
             self.pos += 1;
-            while self.is_eos() == false {
+            while !self.is_eos() {
                 let c = self.raw[self.pos];
                 if c == b'\\' {
                     start_escape = true;
                 } else {
-                    if c == b'"' && start_escape == false {
+                    if c == b'"' && !start_escape {
                         if in_quote {
                             if self.pos > last_pos {
                                 data.push(self.raw[last_pos..self.pos].to_vec());

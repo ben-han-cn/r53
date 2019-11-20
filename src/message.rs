@@ -10,7 +10,7 @@ use crate::rrset::RRset;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
 use rand;
-use std::fmt::Write;
+use std::fmt;
 
 #[derive(Copy, Clone, Debug)]
 pub enum SectionType {
@@ -62,14 +62,18 @@ impl Section {
             rrsets.iter().for_each(|rrset| rrset.to_wire(buf));
         }
     }
+}
 
-    pub fn to_string(&self) -> String {
-        self.0.as_ref().map_or(String::new(), |rrsets| {
-            rrsets.iter().fold(String::new(), |mut out, ref rrset| {
-                write!(out, "{}", rrset.to_string()).unwrap();
-                out
-            })
-        })
+impl fmt::Display for Section {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(rrsets) = self.0.as_ref() {
+            rrsets
+                .iter()
+                .map(|ref rrset| writeln!(f, "{}", rrset))
+                .collect()
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -157,51 +161,6 @@ impl Message {
         }
     }
 
-    pub fn to_string(&self) -> String {
-        let mut message_str = String::new();
-        write!(message_str, "{}", self.header.to_string()).unwrap();
-        if let Some(edns) = self.edns.as_ref() {
-            write!(message_str, ";; OPT PSEUDOSECTION:\n{}", edns.to_string()).unwrap();
-        }
-
-        write!(
-            message_str,
-            ";; QUESTION SECTION:\n{}\n",
-            self.question
-                .as_ref()
-                .map_or("".to_string(), |q| q.to_string()),
-        )
-        .unwrap();
-
-        if self.header.an_count > 0 {
-            write!(
-                message_str,
-                "\n;; ANSWER SECTION:\n{}",
-                self.sections[0].to_string()
-            )
-            .unwrap();
-        }
-
-        if self.header.ns_count > 0 {
-            write!(
-                message_str,
-                "\n;; AUTHORITY SECTION:\n{}",
-                self.sections[1].to_string()
-            )
-            .unwrap();
-        }
-
-        if self.header.ar_count > 0 {
-            write!(
-                message_str,
-                "\n;; ADDITIONAL SECTION:\n{}",
-                self.sections[2].to_string()
-            )
-            .unwrap();
-        }
-        message_str
-    }
-
     pub fn section_mut(&mut self, section: SectionType) -> Option<&mut Vec<RRset>> {
         self.sections[section as usize].0.as_mut()
     }
@@ -212,6 +171,32 @@ impl Message {
 
     pub fn take_section(&mut self, section: SectionType) -> Option<Vec<RRset>> {
         self.sections[section as usize].0.take()
+    }
+}
+
+impl fmt::Display for Message {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "{}", self.header)?;
+        if let Some(edns) = self.edns.as_ref() {
+            write!(f, ";; OPT PSEUDOSECTION:\n{}", edns)?;
+        }
+
+        if let Some(question) = self.question.as_ref() {
+            writeln!(f, ";; QUESTION SECTION:\n{}", question)?;
+        }
+
+        if self.header.an_count > 0 {
+            write!(f, "\n;; ANSWER SECTION:\n{}", self.sections[0])?;
+        }
+
+        if self.header.ns_count > 0 {
+            write!(f, "\n;; AUTHORITY SECTION:\n{}", self.sections[1])?;
+        }
+
+        if self.header.ar_count > 0 {
+            write!(f, "\n;; ADDITIONAL SECTION:\n{}", self.sections[2])?;
+        }
+        Ok(())
     }
 }
 

@@ -4,7 +4,7 @@ use crate::opcode::Opcode;
 use crate::rcode::Rcode;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::Result;
-use std::fmt::Write;
+use std::fmt;
 
 const HEADERFLAG_MASK: u16 = 0x87b0;
 const OPCODE_MASK: u16 = 0x7800;
@@ -92,28 +92,6 @@ impl Header {
         buf.write_u16(self.ns_count);
         buf.write_u16(self.ar_count);
     }
-
-    pub fn to_string(&self) -> String {
-        let mut header_str = String::new();
-        writeln!(
-            &mut header_str,
-            ";; ->>HEADER<<- opcode: {}, status: {}, id: {}",
-            self.opcode.to_string(),
-            self.rcode.to_string(),
-            self.id
-        )
-        .unwrap();
-        write!(&mut header_str, ";; flags: ").unwrap();
-        for flag in self.setted_flags() {
-            write!(&mut header_str, " {}", flag.to_string()).unwrap();
-        }
-        write!(&mut header_str, "; ").unwrap();
-        write!(&mut header_str, "QUERY: {}, ", self.qd_count).unwrap();
-        write!(&mut header_str, "ANSWER: {}, ", self.an_count).unwrap();
-        write!(&mut header_str, "AUTHORITY: {}, ", self.ns_count).unwrap();
-        writeln!(&mut header_str, "ADDITIONAL: {}, ", self.ar_count).unwrap();
-        header_str
-    }
 }
 
 impl Default for Header {
@@ -128,6 +106,25 @@ impl Default for Header {
             ns_count: 0,
             ar_count: 0,
         }
+    }
+}
+
+impl fmt::Display for Header {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(
+            f,
+            ";; ->>HEADER<<- opcode: {}, status: {}, id: {}",
+            self.opcode, self.rcode, self.id,
+        )?;
+        write!(f, ";; flags: ")?;
+        for flag in self.setted_flags() {
+            write!(f, " {}", flag)?;
+        }
+        write!(f, "; ")?;
+        write!(f, "QUERY: {}, ", self.qd_count)?;
+        write!(f, "ANSWER: {}, ", self.an_count)?;
+        write!(f, "AUTHORITY: {}, ", self.ns_count)?;
+        write!(f, "ADDITIONAL: {}, ", self.ar_count)
     }
 }
 

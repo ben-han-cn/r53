@@ -7,7 +7,7 @@ use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::util::{InputBuffer, OutputBuffer};
 use failure::{self, Result};
-use std::fmt::Write;
+use std::fmt;
 use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -25,10 +25,6 @@ impl RRTtl {
     pub fn to_wire(self, buf: &mut OutputBuffer) {
         buf.write_u32(self.0);
     }
-
-    fn to_string(self) -> String {
-        self.0.to_string()
-    }
 }
 
 impl FromStr for RRTtl {
@@ -38,6 +34,12 @@ impl FromStr for RRTtl {
             Ok(num) => Ok(RRTtl(num)),
             Err(_) => Err(DNSError::InvalidTtlString.into()),
         }
+    }
+}
+
+impl fmt::Display for RRTtl {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -115,14 +117,6 @@ impl RRset {
         }
     }
 
-    pub fn to_string(&self) -> String {
-        let mut rrset_str = String::new();
-        self.rdatas.iter().for_each(|rdata| {
-            writeln!(&mut rrset_str, "{}\t{}", self.header(), rdata.to_string()).unwrap();
-        });
-        rrset_str
-    }
-
     fn header(&self) -> String {
         [
             self.name.to_string(),
@@ -190,6 +184,15 @@ impl FromStr for RRset {
             ttl,
             rdatas: vec![rdata],
         })
+    }
+}
+
+impl fmt::Display for RRset {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.rdatas
+            .iter()
+            .map(|rdata| write!(f, "{}\t{}", self.header(), rdata))
+            .collect()
     }
 }
 
