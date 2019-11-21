@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 clap = { version = "2.32", default-features = false}
-failure = { git = "https://github.com/zdnscloud/cement-rs", package = "failure_ext"}
+failure = { git = "https://github.com/ben-han-cn/cement-rs", package = "failure_ext"}
 rand = "0.7"
 
 [lib]
