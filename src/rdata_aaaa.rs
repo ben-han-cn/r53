@@ -23,7 +23,7 @@ impl AAAA {
         get_ipv6_addr(buf).map(|addr| AAAA { host: addr })
     }
 
-    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let ip = iter.next_field::<Ipv6Addr>("AAAA", "Host")?;
         Ok(AAAA { host: ip })
     }

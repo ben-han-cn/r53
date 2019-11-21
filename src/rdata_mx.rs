@@ -18,7 +18,7 @@ impl MX {
         Ok(MX { preference, name })
     }
 
-    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let preference = iter.next_field::<u16>("MX", "preference")?;
         let name = iter.next_field::<Name>("MX", "name")?;
         Ok(MX { preference, name })

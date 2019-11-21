@@ -56,7 +56,7 @@ impl SOA {
         buf.write_u32(self.minimum);
     }
 
-    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let mname = iter.next_field::<Name>("SOA", "mname")?;
         let rname = iter.next_field::<Name>("SOA", "rname")?;
         let serial = iter.next_field::<u32>("SOA", "serial")?;

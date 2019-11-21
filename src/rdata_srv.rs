@@ -41,7 +41,7 @@ impl SRV {
         self.target.to_wire(buf);
     }
 
-    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let priority = iter.next_field::<u16>("SRV", "priority")?;
         let weight = iter.next_field::<u16>("SRV", "weight")?;
         let port = iter.next_field::<u16>("SRV", "port")?;

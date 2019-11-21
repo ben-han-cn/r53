@@ -107,24 +107,31 @@ impl RData {
 
     pub fn from_parser<'a>(typ: RRType, rdata_str: &mut Parser<'a>) -> Result<Self> {
         match typ {
-            RRType::A => rdata_a::A::from_str(rdata_str).map(RData::A),
-            RRType::AAAA => rdata_aaaa::AAAA::from_str(rdata_str).map(RData::AAAA),
-            RRType::NS => rdata_ns::NS::from_str(rdata_str).map(|ns| RData::NS(Box::new(ns))),
-            RRType::CNAME => {
-                rdata_cname::CName::from_str(rdata_str).map(|cname| RData::CName(Box::new(cname)))
+            RRType::A => rdata_a::A::from_parser(rdata_str).map(RData::A),
+            RRType::AAAA => rdata_aaaa::AAAA::from_parser(rdata_str).map(RData::AAAA),
+            RRType::NS => rdata_ns::NS::from_parser(rdata_str).map(|ns| RData::NS(Box::new(ns))),
+            RRType::CNAME => rdata_cname::CName::from_parser(rdata_str)
+                .map(|cname| RData::CName(Box::new(cname))),
+            RRType::SOA => {
+                rdata_soa::SOA::from_parser(rdata_str).map(|soa| RData::SOA(Box::new(soa)))
             }
-            RRType::SOA => rdata_soa::SOA::from_str(rdata_str).map(|soa| RData::SOA(Box::new(soa))),
-            RRType::PTR => rdata_ptr::PTR::from_str(rdata_str).map(|ptr| RData::PTR(Box::new(ptr))),
-            RRType::MX => rdata_mx::MX::from_str(rdata_str).map(|mx| RData::MX(Box::new(mx))),
-            RRType::NAPTR => {
-                rdata_naptr::NAPTR::from_str(rdata_str).map(|naptr| RData::NAPTR(Box::new(naptr)))
+            RRType::PTR => {
+                rdata_ptr::PTR::from_parser(rdata_str).map(|ptr| RData::PTR(Box::new(ptr)))
             }
-            RRType::DNAME => {
-                rdata_dname::DName::from_str(rdata_str).map(|dname| RData::DName(Box::new(dname)))
+            RRType::MX => rdata_mx::MX::from_parser(rdata_str).map(|mx| RData::MX(Box::new(mx))),
+            RRType::NAPTR => rdata_naptr::NAPTR::from_parser(rdata_str)
+                .map(|naptr| RData::NAPTR(Box::new(naptr))),
+            RRType::DNAME => rdata_dname::DName::from_parser(rdata_str)
+                .map(|dname| RData::DName(Box::new(dname))),
+            RRType::OPT => {
+                rdata_opt::OPT::from_parser(rdata_str).map(|opt| RData::OPT(Box::new(opt)))
             }
-            RRType::OPT => rdata_opt::OPT::from_str(rdata_str).map(|opt| RData::OPT(Box::new(opt))),
-            RRType::SRV => rdata_srv::SRV::from_str(rdata_str).map(|srv| RData::SRV(Box::new(srv))),
-            RRType::TXT => rdata_txt::TXT::from_str(rdata_str).map(|txt| RData::TXT(Box::new(txt))),
+            RRType::SRV => {
+                rdata_srv::SRV::from_parser(rdata_str).map(|srv| RData::SRV(Box::new(srv)))
+            }
+            RRType::TXT => {
+                rdata_txt::TXT::from_parser(rdata_str).map(|txt| RData::TXT(Box::new(txt)))
+            }
             _ => Err(DNSError::RRTypeIsNotSupport.into()),
         }
     }

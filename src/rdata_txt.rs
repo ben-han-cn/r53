@@ -23,7 +23,7 @@ impl TXT {
         Ok(TXT { data })
     }
 
-    pub fn from_str<'a>(parser: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(parser: &mut Parser<'a>) -> Result<Self> {
         let data = parser.next_txt("TXT", "data")?;
         Ok(TXT { data })
     }

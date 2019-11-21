@@ -20,7 +20,7 @@ impl A {
         get_ipv4_addr(buf).map(|addr| A { host: addr })
     }
 
-    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let ip = iter.next_field::<Ipv4Addr>("A", "Host")?;
         Ok(A { host: ip })
     }

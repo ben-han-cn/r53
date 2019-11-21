@@ -46,7 +46,7 @@ impl NAPTR {
         self.replacement.to_wire(buf);
     }
 
-    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let order = iter.next_field::<u16>("NAPTR", "order")?;
         let preference = iter.next_field::<u16>("NAPTR", "preference")?;
         let flags = iter.next_field::<u16>("NAPTR", "flags")?;

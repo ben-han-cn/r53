@@ -15,7 +15,7 @@ impl DName {
         Name::from_wire(buf).map(|name| DName { target: name })
     }
 
-    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let target = iter.next_field::<Name>("DName", "Name")?;
         Ok(DName { target })
     }

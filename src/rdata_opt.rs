@@ -25,7 +25,7 @@ impl OPT {
         buf.write_bytes(self.data.as_slice());
     }
 
-    pub fn from_str<'a>(iter: &mut Parser<'a>) -> Result<Self> {
+    pub fn from_parser<'a>(iter: &mut Parser<'a>) -> Result<Self> {
         let data = iter.next_hex("OPT", "data")?;
         Ok(OPT { data })
     }
