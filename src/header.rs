@@ -3,7 +3,7 @@ use crate::message_render::MessageRender;
 use crate::opcode::Opcode;
 use crate::rcode::Rcode;
 use crate::util::{InputBuffer, OutputBuffer};
-use failure::Result;
+use anyhow::Result;
 use std::fmt;
 
 const HEADERFLAG_MASK: u16 = 0x87b0;

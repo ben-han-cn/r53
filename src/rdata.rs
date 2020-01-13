@@ -1,4 +1,3 @@
-use crate::error::DNSError;
 use crate::message_render::MessageRender;
 use crate::rdata_a;
 use crate::rdata_aaaa;
@@ -15,7 +14,7 @@ use crate::rdata_txt;
 use crate::rdatafield_string_parser::Parser;
 use crate::rr_type::RRType;
 use crate::util::{InputBuffer, OutputBuffer};
-use failure::Result;
+use anyhow::{bail, Result};
 use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -56,11 +55,11 @@ impl RData {
             RRType::OPT => rdata_opt::OPT::from_wire(buf, len).map(|opt| RData::OPT(Box::new(opt))),
             RRType::SRV => rdata_srv::SRV::from_wire(buf, len).map(|srv| RData::SRV(Box::new(srv))),
             RRType::TXT => rdata_txt::TXT::from_wire(buf, len).map(|txt| RData::TXT(Box::new(txt))),
-            _ => Err(DNSError::UnknownRRType(typ.to_u16()).into()),
+            _ => bail!("unknown rr type {}", typ.to_u16()),
         };
 
         if rdata.is_ok() && buf.position() - pos != (len as usize) {
-            Err(DNSError::RdataLenIsNotCorrect.into())
+            bail!("rdata len isn't correct");
         } else {
             rdata
         }
@@ -132,7 +131,7 @@ impl RData {
             RRType::TXT => {
                 rdata_txt::TXT::from_parser(rdata_str).map(|txt| RData::TXT(Box::new(txt)))
             }
-            _ => Err(DNSError::RRTypeIsNotSupport.into()),
+            _ => bail!("rrtype {} isn't support", typ.to_string()),
         }
     }
 }

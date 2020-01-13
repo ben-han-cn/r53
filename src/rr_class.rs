@@ -1,7 +1,6 @@
-use crate::error::DNSError;
 use crate::message_render::MessageRender;
 use crate::util::{InputBuffer, OutputBuffer};
-use failure::Result;
+use anyhow::{self, bail, Result};
 use std::fmt;
 use std::str::FromStr;
 
@@ -64,7 +63,7 @@ impl RRClass {
 }
 
 impl FromStr for RRClass {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
         match s.to_uppercase().as_ref() {
             "IN" => Ok(RRClass::IN),
@@ -72,7 +71,7 @@ impl FromStr for RRClass {
             "HS" => Ok(RRClass::HS),
             "NONE" => Ok(RRClass::NONE),
             "ANY" => Ok(RRClass::ANY),
-            _ => Err(DNSError::InvalidClassString.into()),
+            _ => bail!("invalid class string {}", s),
         }
     }
 }

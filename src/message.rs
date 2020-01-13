@@ -8,7 +8,7 @@ use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::rrset::RRset;
 use crate::util::{InputBuffer, OutputBuffer};
-use failure::Result;
+use anyhow::Result;
 use rand;
 use std::fmt;
 

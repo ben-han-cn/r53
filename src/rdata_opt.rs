@@ -2,7 +2,7 @@ use crate::message_render::MessageRender;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::hex::to_hex;
 use crate::util::{InputBuffer, OutputBuffer};
-use failure::Result;
+use anyhow::Result;
 use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

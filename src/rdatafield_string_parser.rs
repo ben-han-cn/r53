@@ -1,6 +1,5 @@
-use crate::error::DNSError;
 use crate::util::hex::from_hex;
-use failure::Result;
+use anyhow::{bail, ensure, Result};
 use std::str::from_utf8;
 use std::str::FromStr;
 
@@ -19,26 +18,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn skip_whitespace(&mut self) {
-        loop {
-            if self.is_eos() {
-                break;
-            }
-            if self.raw[self.pos].is_ascii_whitespace() {
-                self.pos += 1
-            } else {
-                break;
-            }
-        }
-    }
-
     pub fn next_hex(&mut self, rr_type: &'static str, field_name: &'static str) -> Result<Vec<u8>> {
         if let Some(s) = self.next_string() {
             if let Some(d) = from_hex(s) {
                 return Ok(d);
             }
         }
-        Err(DNSError::InvalidRdataString(rr_type, field_name, "empty".to_string()).into())
+        bail!("invalid field {} for type {}", field_name, rr_type);
     }
 
     pub fn next_txt(
@@ -74,24 +60,37 @@ impl<'a> Parser<'a> {
                 self.pos += 1;
             }
 
-            if in_quote {
-                return Err(DNSError::InvalidRdataString(
-                    rr_type,
-                    field_name,
-                    "quote in txt isn't in pair".to_string(),
-                )
-                .into());
-            }
+            ensure!(
+                !in_quote,
+                "parse field {} for type {} failed: quote isn't in pair",
+                field_name,
+                rr_type,
+            );
         } else {
             while let Some(s) = self.next_string() {
                 data.push(s.as_bytes().to_vec());
             }
         }
 
-        if data.is_empty() {
-            Err(DNSError::InvalidRdataString(rr_type, field_name, "empty".to_string()).into())
-        } else {
-            Ok(data)
+        ensure!(
+            !data.is_empty(),
+            "parse field {} for type {} failed: quote isn't in pair",
+            field_name,
+            rr_type
+        );
+        Ok(data)
+    }
+
+    fn skip_whitespace(&mut self) {
+        loop {
+            if self.is_eos() {
+                break;
+            }
+            if self.raw[self.pos].is_ascii_whitespace() {
+                self.pos += 1
+            } else {
+                break;
+            }
         }
     }
 
@@ -103,12 +102,21 @@ impl<'a> Parser<'a> {
         if let Some(s) = self.next_string() {
             match s.parse::<T>() {
                 Err(e) => {
-                    Err(DNSError::InvalidRdataString(rr_type, field_name, e.to_string()).into())
+                    bail!(
+                        "parse field {} for type {} failed: {}",
+                        field_name,
+                        rr_type,
+                        e.to_string()
+                    );
                 }
                 Ok(v) => Ok(v),
             }
         } else {
-            Err(DNSError::InvalidRdataString(rr_type, field_name, "empty".to_string()).into())
+            bail!(
+                "parse field {} for type {} failed: empty",
+                field_name,
+                rr_type,
+            );
         }
     }
 

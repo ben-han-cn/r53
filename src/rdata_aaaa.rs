@@ -1,7 +1,7 @@
 use crate::message_render::MessageRender;
 use crate::rdatafield_string_parser::Parser;
 use crate::util::{InputBuffer, OutputBuffer};
-use failure::Result;
+use anyhow::Result;
 use std::fmt;
 use std::net::Ipv6Addr;
 

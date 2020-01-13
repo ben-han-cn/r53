@@ -3,7 +3,7 @@ use crate::name::Name;
 use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::util::{InputBuffer, OutputBuffer};
-use failure::Result;
+use anyhow::Result;
 use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

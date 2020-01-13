@@ -1,7 +1,6 @@
-use crate::error::DNSError;
 use crate::label_slice::LabelSlice;
 use crate::name::{self, string_parse, Name};
-use failure::{self, Result};
+use anyhow::{self, bail, ensure, Result};
 use std::{
     cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
     fmt,
@@ -51,9 +50,10 @@ impl LabelSequence {
 
     pub fn split(&mut self, start_label: usize, label_count: usize) -> Result<LabelSequence> {
         let max_label_count = self.label_count() as usize;
-        if start_label >= max_label_count || label_count == 0 {
-            return Err(DNSError::InvalidLabelIndex.into());
-        }
+        ensure!(
+            start_label < max_label_count && label_count > 0,
+            "invalide label index"
+        );
 
         let mut label_count = label_count;
         if start_label + label_count > max_label_count {
@@ -94,7 +94,7 @@ impl LabelSequence {
             if suffixes.is_empty() {
                 return Ok(Name::from_raw(self.data.clone(), self.offsets.clone()));
             } else {
-                return Err(DNSError::InvalidLabelSequnceConcatParam.into());
+                bail!("concat label to absolute name");
             }
         }
 
@@ -116,14 +116,18 @@ impl LabelSequence {
                 (len, label_count)
             },
         );
-        if middle_seq_is_absolute || !last_seq_is_absolute {
-            return Err(DNSError::InvalidLabelSequnceConcatParam.into());
-        }
-        if final_length > name::MAX_WIRE_LEN {
-            return Err(DNSError::TooLongName.into());
-        } else if final_label_count > name::MAX_LABEL_COUNT as usize {
-            return Err(DNSError::TooLongLabel.into());
-        }
+        ensure!(
+            !middle_seq_is_absolute && last_seq_is_absolute,
+            "has absolute label in concat"
+        );
+        ensure!(
+            final_length <= name::MAX_WIRE_LEN,
+            "concat label generate too long name"
+        );
+        ensure!(
+            final_label_count <= name::MAX_LABEL_COUNT as usize,
+            "label count exceed limit"
+        );
 
         let mut data = Vec::with_capacity(final_length as usize);
         data.extend_from_slice(self.data.as_ref());
@@ -182,7 +186,7 @@ impl fmt::Display for LabelSequence {
 }
 
 impl FromStr for LabelSequence {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
         let len = s.len();
         match string_parse(s.as_bytes(), 0, len, false) {

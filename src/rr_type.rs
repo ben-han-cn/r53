@@ -1,7 +1,6 @@
-use crate::error::DNSError;
 use crate::message_render::MessageRender;
 use crate::util::{InputBuffer, OutputBuffer};
-use failure::Result;
+use anyhow::{self, bail, Result};
 use std::fmt;
 use std::str::FromStr;
 
@@ -137,7 +136,7 @@ impl fmt::Display for RRType {
 }
 
 impl FromStr for RRType {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
         match s.to_uppercase().as_ref() {
             "A" => Ok(RRType::A),
@@ -162,7 +161,7 @@ impl FromStr for RRType {
             "IXFR" => Ok(RRType::IXFR),
             "AXFR" => Ok(RRType::AXFR),
             "ANY" => Ok(RRType::ANY),
-            _ => Err(DNSError::UnknownRRType(0).into()),
+            _ => bail!("rr type {} doesn't support", s),
         }
     }
 }

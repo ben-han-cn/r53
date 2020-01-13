@@ -1,5 +1,4 @@
-use crate::error::DNSError;
-use failure::Result;
+use anyhow::{ensure, Result};
 
 pub struct InputBuffer<'a> {
     pos: usize,
@@ -40,20 +39,20 @@ impl<'a> InputBuffer<'a> {
     }
 
     pub fn read_u8(&mut self) -> Result<u8> {
-        if self.pos + 1 > self.datalen {
-            return Err(DNSError::InCompleteWire.into());
-        }
-
+        ensure!(
+            self.pos + 1 <= self.datalen,
+            "no space for u8 left in buffer"
+        );
         let num = self.data[self.pos];
         self.pos += 1;
         Ok(num)
     }
 
     pub fn read_u16(&mut self) -> Result<u16> {
-        if self.pos + 2 > self.datalen {
-            return Err(DNSError::InCompleteWire.into());
-        }
-
+        ensure!(
+            self.pos + 2 <= self.datalen,
+            "no space for u16 left in buffer"
+        );
         let mut num = u16::from(self.data[self.pos]) << 8;
         num |= u16::from(self.data[self.pos + 1]);
         self.pos += 2;
@@ -61,10 +60,10 @@ impl<'a> InputBuffer<'a> {
     }
 
     pub fn read_u32(&mut self) -> Result<u32> {
-        if self.pos + 4 > self.datalen {
-            return Err(DNSError::InCompleteWire.into());
-        }
-
+        ensure!(
+            self.pos + 4 <= self.datalen,
+            "no space for u32 left in buffer"
+        );
         let mut num = u32::from(self.data[self.pos]) << 24;
         num |= u32::from(self.data[self.pos + 1]) << 16;
         num |= u32::from(self.data[self.pos + 2]) << 8;
@@ -74,9 +73,11 @@ impl<'a> InputBuffer<'a> {
     }
 
     pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8]> {
-        if self.pos + len > self.datalen {
-            return Err(DNSError::InCompleteWire.into());
-        }
+        ensure!(
+            self.pos + len <= self.datalen,
+            "no space for bytes with len {} left in buffer",
+            len
+        );
 
         let pos = self.pos;
         let data = &self.data[pos..(pos + len)];

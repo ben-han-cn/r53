@@ -1,5 +1,4 @@
 pub mod edns;
-pub mod error;
 pub mod header;
 pub mod header_flag;
 pub mod label_sequence;
