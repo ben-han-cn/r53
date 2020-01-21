@@ -68,7 +68,7 @@ impl Header {
         }
     }
 
-    pub fn rend(&self, render: &mut MessageRender) {
+    pub fn to_wire(&self, render: &mut MessageRender) {
         render.write_u16(self.id);
         render.write_u16(self.header_flag());
         render.write_u16(self.qd_count);
@@ -82,15 +82,6 @@ impl Header {
         flag |= (u16::from(self.rcode.to_u8())) & RCODE_MASK;
         flag |= self.flag & HEADERFLAG_MASK;
         flag
-    }
-
-    pub fn to_wire(&self, buf: &mut OutputBuffer) {
-        buf.write_u16(self.id);
-        buf.write_u16(self.header_flag());
-        buf.write_u16(self.qd_count);
-        buf.write_u16(self.an_count);
-        buf.write_u16(self.ns_count);
-        buf.write_u16(self.ar_count);
     }
 }
 

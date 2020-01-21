@@ -4,11 +4,12 @@ version = "0.1.0"
 authors = ["hanfeng <ben.han.cn@gmail.com>"]
 edition = "2018"
 
+[lib]
+name = "r53"
+path = "src/lib.rs"
+
 [dependencies]
 clap = { version = "2.32", default-features = false}
 rand = "0.7"
 anyhow = "1.0"
-
-[lib]
-name = "r53"
-path = "src/lib.rs"
+rdata_derive = { path = "rdata-derive" }

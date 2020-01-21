@@ -326,11 +326,7 @@ impl Name {
         self.offsets.len() as usize
     }
 
-    pub fn to_wire(&self, buf: &mut OutputBuffer) {
-        buf.write_bytes(&self.raw);
-    }
-
-    pub fn rend(&self, render: &mut MessageRender) {
+    pub fn to_wire(&self, render: &mut MessageRender) {
         render.write_name(self, true);
     }
 

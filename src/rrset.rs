@@ -1,7 +1,6 @@
 use crate::message_render::MessageRender;
 use crate::name::Name;
 use crate::rdata::RData;
-use crate::rdatafield_string_parser::Parser;
 use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::util::{InputBuffer, OutputBuffer};
@@ -17,12 +16,8 @@ impl RRTtl {
         buf.read_u32().map(RRTtl)
     }
 
-    pub fn rend(self, render: &mut MessageRender) {
+    pub fn to_wire(self, render: &mut MessageRender) {
         render.write_u32(self.0);
-    }
-
-    pub fn to_wire(self, buf: &mut OutputBuffer) {
-        buf.write_u32(self.0);
     }
 }
 
@@ -72,46 +67,24 @@ impl RRset {
         })
     }
 
-    pub fn rend(&self, render: &mut MessageRender) {
+    pub fn to_wire(&self, render: &mut MessageRender) {
         if self.rdatas.is_empty() {
-            self.name.rend(render);
-            self.typ.rend(render);
-            self.class.rend(render);
-            self.ttl.rend(render);
+            self.name.to_wire(render);
+            self.typ.to_wire(render);
+            self.class.to_wire(render);
+            self.ttl.to_wire(render);
             render.write_u16(0)
         } else {
             self.rdatas.iter().for_each(|rdata| {
-                self.name.rend(render);
-                self.typ.rend(render);
-                self.class.rend(render);
-                self.ttl.rend(render);
+                self.name.to_wire(render);
+                self.typ.to_wire(render);
+                self.class.to_wire(render);
+                self.ttl.to_wire(render);
                 let pos = render.len();
                 render.skip(2);
-                rdata.rend(render);
+                rdata.to_wire(render);
                 let rdlen = render.len() - pos - 2;
                 render.write_u16_at(rdlen as u16, pos);
-            })
-        }
-    }
-
-    pub fn to_wire(&self, buf: &mut OutputBuffer) {
-        if self.rdatas.is_empty() {
-            self.name.to_wire(buf);
-            self.typ.to_wire(buf);
-            self.class.to_wire(buf);
-            self.ttl.to_wire(buf);
-            buf.write_u16(0)
-        } else {
-            self.rdatas.iter().for_each(|rdata| {
-                self.name.to_wire(buf);
-                self.typ.to_wire(buf);
-                self.class.to_wire(buf);
-                self.ttl.to_wire(buf);
-                let pos = buf.len();
-                buf.skip(2);
-                rdata.to_wire(buf);
-                let rdlen = buf.len() - pos - 2;
-                buf.write_u16_at(rdlen as u16, pos);
             })
         }
     }
@@ -132,118 +105,5 @@ impl RRset {
 
     pub fn is_same_rrset(&self, other: &RRset) -> bool {
         self.typ == other.typ && self.name.eq(&other.name)
-    }
-}
-
-impl FromStr for RRset {
-    type Err = anyhow::Error;
-    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
-        let mut labels = Parser::new(s.trim());
-
-        let name = if let Some(name_str) = labels.next() {
-            Name::from_str(name_str)?
-        } else {
-            bail!("parse name failed");
-        };
-
-        let ttl = if let Some(ttl_str) = labels.next() {
-            RRTtl::from_str(ttl_str)?
-        } else {
-            bail!("parse ttl failed");
-        };
-
-        let mut short_of_class = false;
-        let cls_str = if let Some(cls_str) = labels.next() {
-            cls_str
-        } else {
-            bail!("parse class failed");
-        };
-
-        let class = match RRClass::from_str(cls_str) {
-            Ok(cls) => cls,
-            Err(_) => {
-                short_of_class = true;
-                RRClass::IN
-            }
-        };
-
-        let typ = if short_of_class {
-            RRType::from_str(cls_str)?
-        } else if let Some(typ_str) = labels.next() {
-            RRType::from_str(typ_str)?
-        } else {
-            bail!("parse type failed");
-        };
-
-        let rdata = RData::from_parser(typ, &mut labels)?;
-        Ok(RRset {
-            name,
-            typ,
-            class,
-            ttl,
-            rdatas: vec![rdata],
-        })
-    }
-}
-
-impl fmt::Display for RRset {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.rdatas
-            .iter()
-            .map(|rdata| write!(f, "{}\t{}", self.header(), rdata))
-            .collect()
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::util::hex::from_hex;
-
-    #[test]
-    fn test_rrset_to_wire() {
-        let raw =
-            from_hex("0474657374076578616d706c6503636f6d000001000100000e100004c0000201").unwrap();
-        let mut buf = InputBuffer::new(raw.as_slice());
-        let rrset = RRset::from_wire(&mut buf).unwrap();
-        let desired_rrset = RRset::from_str("test.example.com. 3600 IN A 192.0.2.1").unwrap();
-        assert_eq!(rrset, desired_rrset);
-        let mut render = MessageRender::new();
-        desired_rrset.rend(&mut render);
-        assert_eq!(raw.as_slice(), render.data());
-    }
-
-    #[test]
-    fn test_rrset_from_string() {
-        let rrset_strs = vec![
-            "example.org. 100 IN SOA xxx.net. ns.example.org. 100 1800 900 604800 86400",
-            "example.org. 200 IN NS ns.example.org.",
-            "example.org. 300 IN A 192.0.2.1",
-            "ns.example.org. 400 IN AAAA 2001:db8::2",
-            "cname.example.org. 500 IN CNAME canonical.example.org",
-            "_sip._udp.example.com 600 SRV 5 100 5060 sip-udp01.example.com.",
-            "mydomain.com. 700 IN MX 0 mydomain.com.",
-            "16.3.0.122.in-addr.arpa. 800 IN PTR name.net",
-        ];
-
-        let typs = vec![
-            RRType::SOA,
-            RRType::NS,
-            RRType::A,
-            RRType::AAAA,
-            RRType::CNAME,
-            RRType::SRV,
-            RRType::MX,
-            RRType::PTR,
-        ];
-
-        for (index, rrset_str) in rrset_strs.iter().enumerate() {
-            let rrset = RRset::from_str(*rrset_str).expect("parse rrset failed");
-            assert_eq!(rrset.typ, typs[index]);
-            assert_eq!(
-                rrset.ttl,
-                RRTtl::from_str(format!("{}", (index + 1) * 100).as_ref()).unwrap()
-            );
-        }
     }
 }
