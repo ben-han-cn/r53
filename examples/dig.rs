@@ -78,7 +78,7 @@ fn main() {
     });
     builder.done();
     let mut render = MessageRender::new();
-    query.rend(&mut render);
+    query.to_wire(&mut render);
     socket.send_to(render.data(), server_addr).unwrap();
 
     let mut buf = [0; 1024];
@@ -86,7 +86,7 @@ fn main() {
         Ok((len, _)) if len > 0 => {
             println!("{}", to_hex(&buf[0..len]));
             let response = Message::from_wire(&buf).unwrap();
-            println!("get response: {}", response.to_string());
+            //println!("get response: {}", response.to_string());
         }
         _ => println!("timeout"),
     }

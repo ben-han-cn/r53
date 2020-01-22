@@ -145,7 +145,7 @@ mod test {
         assert!(header.is_flag_set(HeaderFlag::QueryRespone));
 
         let mut render = MessageRender::new();
-        header.rend(&mut render);
+        header.to_wire(&mut render);
         assert_eq!(raw.as_slice(), render.data());
     }
 }

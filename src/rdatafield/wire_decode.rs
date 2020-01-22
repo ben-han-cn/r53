@@ -54,19 +54,18 @@ pub fn u32_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(u32, u16)> {
 
 pub fn text_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(Vec<Vec<u8>>, u16)> {
     let mut data = Vec::new();
-    loop {
-        let (d, len) = byte_binary_from_wire(buf, len)?;
-        data.push(d);
-        if len == 0 {
-            break;
-        }
+    let mut left_len = len;
+    while left_len > 0 {
+        let (txt, len) = byte_binary_from_wire(buf, left_len)?;
+        data.push(txt);
+        left_len = len;
     }
     Ok((data, 0))
 }
 
 pub fn byte_binary_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(Vec<u8>, u16)> {
     let dl = buf.read_u8()? as u16;
-    ensure!(len >= 1 + dl, "wire is too short for u32");
+    ensure!(len >= 1 + dl, "wire is too short for byte binary");
     let data = buf.read_bytes(dl as usize)?;
     Ok((data.to_vec(), len - dl - 1))
 }

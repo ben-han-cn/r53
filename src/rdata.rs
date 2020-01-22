@@ -1,7 +1,7 @@
 use crate::message_render::MessageRender;
 use crate::rdatas;
 use crate::rr_type::RRType;
-use crate::util::{InputBuffer, OutputBuffer};
+use crate::util::{InputBuffer, StringBuffer};
 use anyhow::{bail, Result};
 use std::fmt;
 
@@ -23,6 +23,7 @@ pub enum RData {
 impl RData {
     pub fn from_wire(typ: RRType, buf: &mut InputBuffer, len: u16) -> Result<Self> {
         let pos = buf.position();
+        println!("----> decode {} with len {}", typ, len);
         let rdata = match typ {
             RRType::A => rdatas::A::from_wire(buf, len).map(RData::A),
             RRType::AAAA => rdatas::AAAA::from_wire(buf, len).map(RData::AAAA),
@@ -62,6 +63,28 @@ impl RData {
             RData::OPT(ref opt) => opt.to_wire(to_wireer),
             RData::SRV(ref srv) => srv.to_wire(to_wireer),
             RData::TXT(ref txt) => txt.to_wire(to_wireer),
+        }
+    }
+
+    pub fn from_str(typ: RRType, s: &str) -> Result<Self> {
+        let mut buf = StringBuffer::new(s.trim());
+        match typ {
+            RRType::A => rdatas::A::from_str(&mut buf).map(RData::A),
+            RRType::AAAA => rdatas::AAAA::from_str(&mut buf).map(RData::AAAA),
+            RRType::NS => rdatas::NS::from_str(&mut buf).map(|ns| RData::NS(Box::new(ns))),
+            RRType::CNAME => {
+                rdatas::CName::from_str(&mut buf).map(|cname| RData::CName(Box::new(cname)))
+            }
+            RRType::SOA => rdatas::SOA::from_str(&mut buf).map(|soa| RData::SOA(Box::new(soa))),
+            RRType::PTR => rdatas::PTR::from_str(&mut buf).map(|ptr| RData::PTR(Box::new(ptr))),
+            RRType::MX => rdatas::MX::from_str(&mut buf).map(|mx| RData::MX(Box::new(mx))),
+            RRType::NAPTR => {
+                rdatas::NAPTR::from_str(&mut buf).map(|naptr| RData::NAPTR(Box::new(naptr)))
+            }
+            RRType::OPT => rdatas::OPT::from_str(&mut buf).map(|opt| RData::OPT(Box::new(opt))),
+            RRType::SRV => rdatas::SRV::from_str(&mut buf).map(|srv| RData::SRV(Box::new(srv))),
+            RRType::TXT => rdatas::TXT::from_str(&mut buf).map(|txt| RData::TXT(Box::new(txt))),
+            _ => bail!("rrtype {} isn't support", typ.to_string()),
         }
     }
 }

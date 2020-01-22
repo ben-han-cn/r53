@@ -340,7 +340,7 @@ mod test {
             from_hex("e3808583000100000001000001320131033136380331393207696e2d61646472046172706100000c0001033136380331393207494e2d4144445204415250410000060001000151800017c02a00000000000000708000001c2000093a8000015180").unwrap();
         //render.clear();
         let msg = Message::from_wire(raw.as_slice()).unwrap();
-        msg.rend(&mut render);
+        msg.to_wire(&mut render);
         assert_eq!(raw.as_slice(), render.data());
     }
 }

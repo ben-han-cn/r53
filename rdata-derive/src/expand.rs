@@ -8,11 +8,14 @@ pub fn derive<'a>(node: &'a DeriveInput) -> Result<TokenStream> {
     let name = rdata.name;
     let from_wire = derive_from_wire(&rdata)?;
     let to_wire = derive_to_wire(&rdata)?;
+    let from_str = derive_from_str(&rdata)?;
     Ok(quote! {
         impl #name {
             #from_wire
 
             #to_wire
+
+            #from_str
         }
     })
 }
@@ -65,6 +68,24 @@ pub fn derive_to_wire<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
     Ok(quote! {
             pub fn to_wire(&self, render: &mut MessageRender) {
                 #(#field_to_wire)*
+            }
+    })
+}
+
+pub fn derive_from_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
+    let field_assignment = rdata.fields.iter().map(|field| {
+        let name = field.name;
+        let from_str_func = Ident::new(&format!("{}_from_str", field.display), field.name.span());
+        quote! {
+            #name: #from_str_func(buf)?,
+        }
+    });
+    let name = rdata.name;
+    Ok(quote! {
+            pub fn from_str(buf: &mut StringBuffer) -> Result<Self> {
+                Ok(#name{
+                #(#field_assignment)*
+                })
             }
     })
 }
