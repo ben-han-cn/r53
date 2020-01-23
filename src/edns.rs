@@ -57,3 +57,13 @@ impl Edns {
         }
     }
 }
+
+impl fmt::Display for Edns {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "; EDNS: version: {}, ", self.versoin)?;
+        if self.dnssec_aware {
+            write!(f, "flags: do; ")?;
+        }
+        write!(f, "udp: {}", self.udp_size)
+    }
+}

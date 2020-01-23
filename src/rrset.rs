@@ -107,3 +107,12 @@ impl RRset {
         self.typ == other.typ && self.name.eq(&other.name)
     }
 }
+
+impl fmt::Display for RRset {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.rdatas
+            .iter()
+            .map(|rdata| write!(f, "{}\t{}\n", self.header(), rdata))
+            .collect()
+    }
+}

@@ -58,6 +58,19 @@ impl Section {
     }
 }
 
+impl fmt::Display for Section {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(rrsets) = self.0.as_ref() {
+            rrsets
+                .iter()
+                .map(|ref rrset| write!(f, "{}", rrset))
+                .collect()
+        } else {
+            Ok(())
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Message {
     pub header: Header,
@@ -141,6 +154,32 @@ impl Message {
 
     pub fn take_section(&mut self, section: SectionType) -> Option<Vec<RRset>> {
         self.sections[section as usize].0.take()
+    }
+}
+
+impl fmt::Display for Message {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "{}", self.header)?;
+        if let Some(edns) = self.edns.as_ref() {
+            write!(f, ";; OPT PSEUDOSECTION:\n{}", edns)?;
+        }
+
+        if let Some(question) = self.question.as_ref() {
+            writeln!(f, ";; QUESTION SECTION:\n{}", question)?;
+        }
+
+        if self.header.an_count > 0 {
+            write!(f, ";; ANSWER SECTION:\n{}\n", self.sections[0])?;
+        }
+
+        if self.header.ns_count > 0 {
+            write!(f, ";; AUTHORITY SECTION:\n{}\n", self.sections[1])?;
+        }
+
+        if self.header.ar_count > 0 {
+            write!(f, ";; ADDITIONAL SECTION:\n{}", self.sections[2])?;
+        }
+        Ok(())
     }
 }
 

@@ -9,6 +9,7 @@ pub fn derive<'a>(node: &'a DeriveInput) -> Result<TokenStream> {
     let from_wire = derive_from_wire(&rdata)?;
     let to_wire = derive_to_wire(&rdata)?;
     let from_str = derive_from_str(&rdata)?;
+    let display_impl = derive_to_str(&rdata)?;
     Ok(quote! {
         impl #name {
             #from_wire
@@ -17,6 +18,8 @@ pub fn derive<'a>(node: &'a DeriveInput) -> Result<TokenStream> {
 
             #from_str
         }
+
+        #display_impl
     })
 }
 
@@ -87,5 +90,33 @@ pub fn derive_from_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
                 #(#field_assignment)*
                 })
             }
+    })
+}
+
+pub fn derive_to_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
+    let field_to_str = rdata.fields.iter().map(|field| {
+        let name = field.name;
+        let to_str_func = Ident::new(&format!("{}_to_str", field.display), field.name.span());
+        match field.codec.as_ref() {
+            "name" | "name_uncompressed" | "text" | "byte_binary" | "binary" => {
+                quote! {
+                    #to_str_func(f, &self.#name)?;
+                }
+            }
+            _ => {
+                quote! {
+                    #to_str_func(f, self.#name)?;
+                }
+            }
+        }
+    });
+    let name = rdata.name;
+    Ok(quote! {
+        impl fmt::Display for #name{
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                #(#field_to_str)*
+                Ok(())
+            }
+        }
     })
 }

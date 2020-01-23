@@ -23,7 +23,6 @@ pub enum RData {
 impl RData {
     pub fn from_wire(typ: RRType, buf: &mut InputBuffer, len: u16) -> Result<Self> {
         let pos = buf.position();
-        println!("----> decode {} with len {}", typ, len);
         let rdata = match typ {
             RRType::A => rdatas::A::from_wire(buf, len).map(RData::A),
             RRType::AAAA => rdatas::AAAA::from_wire(buf, len).map(RData::AAAA),
@@ -85,6 +84,24 @@ impl RData {
             RRType::SRV => rdatas::SRV::from_str(&mut buf).map(|srv| RData::SRV(Box::new(srv))),
             RRType::TXT => rdatas::TXT::from_str(&mut buf).map(|txt| RData::TXT(Box::new(txt))),
             _ => bail!("rrtype {} isn't support", typ.to_string()),
+        }
+    }
+}
+
+impl fmt::Display for RData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            RData::A(ref a) => write!(f, "{}", a),
+            RData::AAAA(ref aaaa) => write!(f, "{}", aaaa),
+            RData::NS(ref ns) => write!(f, "{}", ns),
+            RData::CName(ref cname) => write!(f, "{}", cname),
+            RData::SOA(ref soa) => write!(f, "{}", soa),
+            RData::PTR(ref ptr) => write!(f, "{}", ptr),
+            RData::MX(ref mx) => write!(f, "{}", mx),
+            RData::NAPTR(ref naptr) => write!(f, "{}", naptr),
+            RData::OPT(ref opt) => write!(f, "{}", opt),
+            RData::SRV(ref srv) => write!(f, "{}", srv),
+            RData::TXT(ref txt) => write!(f, "{}", txt),
         }
     }
 }
