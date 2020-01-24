@@ -178,3 +178,20 @@ impl Ord for LabelSequence {
         }
     }
 }
+
+impl fmt::Display for LabelSequence {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", LabelSlice::from_label_sequence(self))
+    }
+}
+
+impl FromStr for LabelSequence {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        let len = s.len();
+        match string_parse(s.as_bytes(), 0, len, false) {
+            Ok((data, offsets)) => Ok(LabelSequence { data, offsets }),
+            Err(e) => Err(e),
+        }
+    }
+}
