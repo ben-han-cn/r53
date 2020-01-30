@@ -1,7 +1,7 @@
 use crate::name::Name;
 use crate::util::hex::to_hex;
+use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
-use std::{fmt, str};
 
 pub fn name_to_str(f: &mut fmt::Formatter, name: &Name) -> fmt::Result {
     write!(f, "{} ", name)
@@ -35,11 +35,21 @@ pub fn text_to_str(f: &mut fmt::Formatter, data: &Vec<Vec<u8>>) -> fmt::Result {
 }
 
 pub fn string_to_str(f: &mut fmt::Formatter, data: &Vec<u8>) -> fmt::Result {
-    write!(
-        f,
-        "\"{}\" ",
-        str::from_utf8(data.as_slice()).unwrap_or("invalid utf8 str")
-    )
+    let mut buf = Vec::new();
+    for c in data {
+        let ch = *c;
+        if (ch < 0x20) || (ch >= 0x7f) {
+            buf.push(b'\\');
+            buf.push(0x30 + ((ch / 100) % 10));
+            buf.push(0x30 + ((ch / 10) % 10));
+            buf.push(0x30 + (ch % 10));
+            continue;
+        } else if ch == b'"' || ch == b';' || ch == b'\\' {
+            buf.push(b'\\');
+        }
+        buf.push(ch);
+    }
+    write!(f, "\"{}\" ", unsafe { String::from_utf8_unchecked(buf) })
 }
 
 pub fn binary_to_str(f: &mut fmt::Formatter, data: &Vec<u8>) -> fmt::Result {

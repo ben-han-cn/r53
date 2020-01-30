@@ -179,6 +179,6 @@ mod test {
 
         //txt4
         let txt4 = TXT::from_str(&mut StringBuffer::new(r#""foo\"xx\" bar""#)).unwrap();
-        assert_eq!(str::from_utf8(&txt4.data[0]).unwrap(), r#"foo\"xx\" bar"#);
+        assert_eq!(str::from_utf8(&txt4.data[0]).unwrap(), r#"foo"xx" bar"#);
     }
 }

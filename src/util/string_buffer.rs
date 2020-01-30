@@ -18,42 +18,55 @@ impl<'a> StringBuffer<'a> {
     }
 
     pub fn read_text(&mut self) -> Result<Vec<Vec<u8>>> {
-        self.skip_whitespace();
         let mut data = Vec::new();
-        if self.raw[self.pos] == b'"' {
-            let mut last_pos = self.pos + 1;
-            let mut in_quote = true;
-            let mut start_escape = false;
-            self.pos += 1;
-            while !self.is_eos() {
-                let c = self.raw[self.pos];
-                if c == b'\\' {
-                    start_escape = true;
-                } else {
-                    if c == b'"' && !start_escape {
-                        if in_quote {
-                            if self.pos > last_pos {
-                                data.push(self.raw[last_pos..self.pos].to_vec());
-                            }
-                            in_quote = false;
-                        } else {
-                            in_quote = true;
-                            last_pos = self.pos + 1;
-                        }
-                    }
-                    start_escape = false;
-                }
-                self.pos += 1;
+        loop {
+            self.skip_whitespace();
+            if self.is_eos() {
+                break;
             }
-            ensure!(!in_quote, "quote isn't in pair",);
-        } else {
-            while let Some(s) = self.read_str() {
-                data.push(s.as_bytes().to_vec());
-            }
+            let slice = self.read_text_slice()?;
+            data.push(slice);
         }
-
         ensure!(!data.is_empty(), "quote isn't in pair",);
         Ok(data)
+    }
+
+    pub fn read_text_slice(&mut self) -> Result<Vec<u8>> {
+        if self.raw[self.pos] != b'"' {
+            bail!("text isn't quoted");
+        }
+
+        self.pos += 1;
+        let mut data = Vec::new();
+        let mut escape = false;
+        while !self.is_eos() {
+            let c = self.raw[self.pos];
+            if c == b'\\' && !escape {
+                escape = true;
+                self.pos += 1;
+            } else {
+                if c == b'"' && !escape {
+                    self.pos += 1;
+                    if data.is_empty() {
+                        bail!("empty text slice");
+                    } else {
+                        return Ok(data);
+                    }
+                } else if escape && c.is_ascii_digit() {
+                    if self.raw.len() - self.pos < 3 {
+                        bail!("num is short than 3 bytes");
+                    }
+                    let num: u8 = from_utf8(&self.raw[self.pos..(self.pos + 3)])?.parse()?;
+                    data.push(num);
+                    self.pos += 3;
+                } else {
+                    data.push(c);
+                    self.pos += 1;
+                }
+                escape = false;
+            }
+        }
+        bail!("quote isn't in pair");
     }
 
     fn skip_whitespace(&mut self) {
@@ -155,6 +168,11 @@ mod test {
         let s = r#" "abc\"cd\" edf""#;
         let data = StringBuffer::new(s).read_text().unwrap();
         assert_eq!(data.len(), 1);
-        assert_eq!(data[0], r#"abc\"cd\" edf"#.as_bytes().to_vec());
+        assert_eq!(data[0], r#"abc"cd" edf"#.as_bytes().to_vec());
+
+        let s = r#" "a\011d" "#;
+        let data = StringBuffer::new(s).read_text().unwrap();
+        assert_eq!(data.len(), 1);
+        assert_eq!(data[0][1], 11);
     }
 }

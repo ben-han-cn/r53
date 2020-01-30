@@ -186,6 +186,8 @@ impl fmt::Display for Message {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::rrset;
+    use std::str::FromStr;
     #[test]
     fn test_message_from_wire() {
         let axfr_msg = vec![
@@ -214,5 +216,32 @@ mod test {
         ];
         let msg = Message::from_wire(axfr_msg.as_slice()).unwrap();
         assert_eq!(msg.header.id, 58980);
+        assert_eq!(msg.header.an_count, 15);
+        assert_eq!(msg.header.ns_count, 0);
+        assert_eq!(msg.header.ar_count, 0);
+
+        let rrset_strs = vec![
+            "example.	3600	IN	SOA	mname1. . 2000042795 20 20 1814400 3600",
+            "example.	3600	IN	NS	a.example.",
+            "a.example.	3600	IN	A	73.80.65.49",
+            "aaaa.example.	3600	IN	AAAA	ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            "cname.example.	3600	IN	CNAME	cname-target.",
+            "mx.example.	3600	IN	MX	10 mail.example.",
+            r#"naptr.example.	3600	IN	NAPTR	65535 65535 "blurgh" "blorf" ":(.*):\1:" foo."#,
+            "ptr.example.	3600	IN	PTR	foo.net.",
+            "srv.example.	3600	IN	SRV	65535 65535 65535 old-slow-box.example.com.",
+            r#"txt1.example.	3600	IN	TXT	"foo foo foo""#,
+            r#"txt2.example.	3600	IN	TXT	"foo" "bar""#,
+            r#"txt3.example.	3600	IN	TXT	"foo bar""#,
+            r#"txt4.example.	3600	IN	TXT	"foo\010bar""#,
+            r#"txt5.example.	3600	IN	TXT	"\"foo\"""#,
+            "example.	3600	IN	SOA	mname1. . 2000042795 20 20 1814400 3600",
+        ];
+
+        let answers = msg.section(SectionType::Answer).unwrap();
+        for (i, rrset_str) in rrset_strs.iter().enumerate() {
+            let rrset = rrset::RRset::from_str(*rrset_str).unwrap();
+            assert_eq!(answers[i], rrset);
+        }
     }
 }
