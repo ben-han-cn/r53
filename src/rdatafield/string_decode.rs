@@ -32,9 +32,7 @@ pub fn text_from_str(buf: &mut StringBuffer) -> Result<Vec<Vec<u8>>> {
 }
 
 pub fn string_from_str(buf: &mut StringBuffer) -> Result<Vec<u8>> {
-    buf.read_str()
-        .and_then(|s| Some(s.trim_matches('"').as_bytes().to_vec()))
-        .ok_or(anyhow!("empty string"))
+    buf.read_char_string()
 }
 
 pub fn binary_from_str(buf: &mut StringBuffer) -> Result<Vec<u8>> {

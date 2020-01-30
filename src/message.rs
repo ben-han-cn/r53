@@ -227,7 +227,7 @@ mod test {
             "aaaa.example.	3600	IN	AAAA	ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
             "cname.example.	3600	IN	CNAME	cname-target.",
             "mx.example.	3600	IN	MX	10 mail.example.",
-            r#"naptr.example.	3600	IN	NAPTR	65535 65535 "blurgh" "blorf" ":(.*):\1:" foo."#,
+            r#"naptr.example.	3600	IN	NAPTR	65535 65535 "blurgh" "blorf" ":(.*):\\1:" foo."#,
             "ptr.example.	3600	IN	PTR	foo.net.",
             "srv.example.	3600	IN	SRV	65535 65535 65535 old-slow-box.example.com.",
             r#"txt1.example.	3600	IN	TXT	"foo foo foo""#,

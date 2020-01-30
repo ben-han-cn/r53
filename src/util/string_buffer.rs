@@ -2,6 +2,8 @@ use anyhow::{anyhow, bail, ensure, Result};
 use std::str::from_utf8;
 use std::str::FromStr;
 
+const MAX_CHARSTRING_LEN: usize = 255;
+
 pub struct StringBuffer<'a> {
     raw: &'a [u8],
     pos: usize,
@@ -20,19 +22,19 @@ impl<'a> StringBuffer<'a> {
     pub fn read_text(&mut self) -> Result<Vec<Vec<u8>>> {
         let mut data = Vec::new();
         loop {
-            self.skip_whitespace();
+            let slice = self.read_char_string()?;
+            data.push(slice);
             if self.is_eos() {
                 break;
             }
-            let slice = self.read_text_slice()?;
-            data.push(slice);
         }
         ensure!(!data.is_empty(), "quote isn't in pair",);
         Ok(data)
     }
 
-    pub fn read_text_slice(&mut self) -> Result<Vec<u8>> {
-        if self.raw[self.pos] != b'"' {
+    pub fn read_char_string(&mut self) -> Result<Vec<u8>> {
+        self.skip_whitespace();
+        if self.is_eos() || self.raw[self.pos] != b'"' {
             bail!("text isn't quoted");
         }
 
@@ -64,6 +66,9 @@ impl<'a> StringBuffer<'a> {
                     self.pos += 1;
                 }
                 escape = false;
+                if data.len() > MAX_CHARSTRING_LEN {
+                    bail!("txt len is too long");
+                }
             }
         }
         bail!("quote isn't in pair");
@@ -170,7 +175,7 @@ mod test {
         assert_eq!(data.len(), 1);
         assert_eq!(data[0], r#"abc"cd" edf"#.as_bytes().to_vec());
 
-        let s = r#" "a\011d" "#;
+        let s = r#""a\011d""#;
         let data = StringBuffer::new(s).read_text().unwrap();
         assert_eq!(data.len(), 1);
         assert_eq!(data[0][1], 11);
