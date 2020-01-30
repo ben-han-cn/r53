@@ -2,7 +2,6 @@ use crate::message_render::MessageRender;
 use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::rrset::{RRTtl, RRset};
-use crate::util::OutputBuffer;
 use std::fmt;
 
 const VERSION_SHIFT: u32 = 16;

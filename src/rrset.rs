@@ -3,7 +3,7 @@ use crate::name::Name;
 use crate::rdata::RData;
 use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
-use crate::util::{InputBuffer, OutputBuffer};
+use crate::util::{InputBuffer, StringBuffer};
 use anyhow::{self, bail, Result};
 use std::fmt;
 use std::str::FromStr;
@@ -105,6 +105,57 @@ impl RRset {
 
     pub fn is_same_rrset(&self, other: &RRset) -> bool {
         self.typ == other.typ && self.name.eq(&other.name)
+    }
+}
+
+impl FromStr for RRset {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        let mut labels = StringBuffer::new(s.trim());
+
+        let name = if let Some(name_str) = labels.next() {
+            Name::from_str(name_str)?
+        } else {
+            bail!("parse name failed");
+        };
+
+        let ttl = if let Some(ttl_str) = labels.next() {
+            RRTtl::from_str(ttl_str)?
+        } else {
+            bail!("parse ttl failed");
+        };
+
+        let mut short_of_class = false;
+        let cls_str = if let Some(cls_str) = labels.next() {
+            cls_str
+        } else {
+            bail!("parse class failed");
+        };
+
+        let class = match RRClass::from_str(cls_str) {
+            Ok(cls) => cls,
+            Err(_) => {
+                short_of_class = true;
+                RRClass::IN
+            }
+        };
+
+        let typ = if short_of_class {
+            RRType::from_str(cls_str)?
+        } else if let Some(typ_str) = labels.next() {
+            RRType::from_str(typ_str)?
+        } else {
+            bail!("parse type failed");
+        };
+
+        let rdata = RData::from_str(typ, &mut labels)?;
+        Ok(RRset {
+            name,
+            typ,
+            class,
+            ttl,
+            rdatas: vec![rdata],
+        })
     }
 }
 

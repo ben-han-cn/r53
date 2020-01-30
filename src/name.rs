@@ -1,7 +1,7 @@
 use crate::label_sequence::LabelSequence;
 use crate::label_slice::LabelSlice;
 use crate::message_render::MessageRender;
-use crate::util::{InputBuffer, OutputBuffer};
+use crate::util::InputBuffer;
 use anyhow::{self, bail, ensure, Result};
 use std::{
     cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},

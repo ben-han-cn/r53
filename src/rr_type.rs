@@ -1,5 +1,5 @@
 use crate::message_render::MessageRender;
-use crate::util::{InputBuffer, OutputBuffer};
+use crate::util::InputBuffer;
 use anyhow::{self, bail, Result};
 use std::fmt;
 use std::str::FromStr;

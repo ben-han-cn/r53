@@ -2,7 +2,7 @@ use crate::header_flag::{clear_flag, is_flag_set, set_flag, setted_flags, Header
 use crate::message_render::MessageRender;
 use crate::opcode::Opcode;
 use crate::rcode::Rcode;
-use crate::util::{InputBuffer, OutputBuffer};
+use crate::util::InputBuffer;
 use anyhow::Result;
 use std::fmt;
 

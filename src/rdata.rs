@@ -65,24 +65,23 @@ impl RData {
         }
     }
 
-    pub fn from_str(typ: RRType, s: &str) -> Result<Self> {
-        let mut buf = StringBuffer::new(s.trim());
+    pub fn from_str(typ: RRType, buf: &mut StringBuffer) -> Result<Self> {
         match typ {
-            RRType::A => rdatas::A::from_str(&mut buf).map(RData::A),
-            RRType::AAAA => rdatas::AAAA::from_str(&mut buf).map(RData::AAAA),
-            RRType::NS => rdatas::NS::from_str(&mut buf).map(|ns| RData::NS(Box::new(ns))),
+            RRType::A => rdatas::A::from_str(buf).map(RData::A),
+            RRType::AAAA => rdatas::AAAA::from_str(buf).map(RData::AAAA),
+            RRType::NS => rdatas::NS::from_str(buf).map(|ns| RData::NS(Box::new(ns))),
             RRType::CNAME => {
-                rdatas::CName::from_str(&mut buf).map(|cname| RData::CName(Box::new(cname)))
+                rdatas::CName::from_str(buf).map(|cname| RData::CName(Box::new(cname)))
             }
-            RRType::SOA => rdatas::SOA::from_str(&mut buf).map(|soa| RData::SOA(Box::new(soa))),
-            RRType::PTR => rdatas::PTR::from_str(&mut buf).map(|ptr| RData::PTR(Box::new(ptr))),
-            RRType::MX => rdatas::MX::from_str(&mut buf).map(|mx| RData::MX(Box::new(mx))),
+            RRType::SOA => rdatas::SOA::from_str(buf).map(|soa| RData::SOA(Box::new(soa))),
+            RRType::PTR => rdatas::PTR::from_str(buf).map(|ptr| RData::PTR(Box::new(ptr))),
+            RRType::MX => rdatas::MX::from_str(buf).map(|mx| RData::MX(Box::new(mx))),
             RRType::NAPTR => {
-                rdatas::NAPTR::from_str(&mut buf).map(|naptr| RData::NAPTR(Box::new(naptr)))
+                rdatas::NAPTR::from_str(buf).map(|naptr| RData::NAPTR(Box::new(naptr)))
             }
-            RRType::OPT => rdatas::OPT::from_str(&mut buf).map(|opt| RData::OPT(Box::new(opt))),
-            RRType::SRV => rdatas::SRV::from_str(&mut buf).map(|srv| RData::SRV(Box::new(srv))),
-            RRType::TXT => rdatas::TXT::from_str(&mut buf).map(|txt| RData::TXT(Box::new(txt))),
+            RRType::OPT => rdatas::OPT::from_str(buf).map(|opt| RData::OPT(Box::new(opt))),
+            RRType::SRV => rdatas::SRV::from_str(buf).map(|srv| RData::SRV(Box::new(srv))),
+            RRType::TXT => rdatas::TXT::from_str(buf).map(|txt| RData::TXT(Box::new(txt))),
             _ => bail!("rrtype {} isn't support", typ.to_string()),
         }
     }

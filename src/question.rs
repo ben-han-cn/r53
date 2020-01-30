@@ -2,7 +2,7 @@ use crate::message_render::MessageRender;
 use crate::name::Name;
 use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
-use crate::util::{InputBuffer, OutputBuffer};
+use crate::util::InputBuffer;
 use anyhow::Result;
 use std::fmt;
 
