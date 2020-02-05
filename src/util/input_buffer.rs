@@ -39,10 +39,7 @@ impl<'a> InputBuffer<'a> {
     }
 
     pub fn read_u8(&mut self) -> Result<u8> {
-        ensure!(
-            self.pos + 1 <= self.datalen,
-            "no space for u8 left in buffer"
-        );
+        ensure!(self.pos < self.datalen, "no space for u8 left in buffer");
         let num = self.data[self.pos];
         self.pos += 1;
         Ok(num)

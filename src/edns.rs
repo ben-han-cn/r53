@@ -66,3 +66,29 @@ impl fmt::Display for Edns {
         write!(f, "udp: {}", self.udp_size)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::util::{hex::from_hex, InputBuffer};
+
+    #[test]
+    fn test_edns_to_wire() {
+        let raw = from_hex("0000291000000000000000").unwrap();
+        let mut buf = InputBuffer::new(raw.as_slice());
+        let rrset = RRset::from_wire(&mut buf).unwrap();
+        let edns = Edns::from_rrset(&rrset);
+        let desired_edns = Edns {
+            versoin: 0,
+            extened_rcode: 0,
+            udp_size: 4096,
+            dnssec_aware: false,
+            options: None,
+        };
+        assert_eq!(edns, desired_edns);
+
+        let mut render = MessageRender::new();
+        desired_edns.to_wire(&mut render);
+        assert_eq!(raw.as_slice(), render.data());
+    }
+}

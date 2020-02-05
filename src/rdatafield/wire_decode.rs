@@ -65,7 +65,7 @@ pub fn text_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(Vec<Vec<u8>>, 
 
 pub fn byte_binary_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(Vec<u8>, u16)> {
     let dl = buf.read_u8()? as u16;
-    ensure!(len >= 1 + dl, "wire is too short for byte binary");
+    ensure!(len > dl, "wire is too short for byte binary");
     let data = buf.read_bytes(dl as usize)?;
     Ok((data.to_vec(), len - dl - 1))
 }
