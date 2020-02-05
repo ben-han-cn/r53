@@ -84,7 +84,7 @@ fn main() {
     let mut buf = [0; 1024];
     match socket.recv_from(&mut buf) {
         Ok((len, _)) if len > 0 => {
-            //println!("{}", to_hex(&buf[0..len]));
+            println!("{}", to_hex(&buf[0..len]));
             let response = Message::from_wire(&buf).unwrap();
             println!("get response: {}", response.to_string());
         }
