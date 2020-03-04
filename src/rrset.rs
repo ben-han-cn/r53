@@ -148,7 +148,7 @@ impl FromStr for RRset {
             bail!("parse type failed");
         };
 
-        let rdata = RData::from_str(typ, &mut labels)?;
+        let rdata = RData::from_buffer(typ, &mut labels)?;
         Ok(RRset {
             name,
             typ,

@@ -65,7 +65,12 @@ impl RData {
         }
     }
 
-    pub fn from_str(typ: RRType, buf: &mut StringBuffer) -> Result<Self> {
+    pub fn from_str(typ: RRType, s: &str) -> Result<Self> {
+        let mut buf = StringBuffer::new(s);
+        return Self::from_buffer(typ, &mut buf);
+    }
+
+    pub fn from_buffer(typ: RRType, buf: &mut StringBuffer) -> Result<Self> {
         match typ {
             RRType::A => rdatas::A::from_str(buf).map(RData::A),
             RRType::AAAA => rdatas::AAAA::from_str(buf).map(RData::AAAA),
