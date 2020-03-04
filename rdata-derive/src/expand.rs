@@ -94,18 +94,33 @@ pub fn derive_from_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
 }
 
 pub fn derive_to_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
-    let field_to_str = rdata.fields.iter().map(|field| {
+    let field_count = rdata.fields.len();
+    let field_to_str = rdata.fields.iter().enumerate().map(|(i, field)| {
         let name = field.name;
         let to_str_func = Ident::new(&format!("{}_to_str", field.display), field.name.span());
         match field.codec.as_ref() {
             "name" | "name_uncompressed" | "text" | "byte_binary" | "binary" => {
-                quote! {
-                    #to_str_func(f, &self.#name)?;
+                if i != field_count - 1 {
+                    quote! {
+                        #to_str_func(f, &self.#name)?;
+                        write!(f, " ")?;
+                    }
+                } else {
+                    quote! {
+                        #to_str_func(f, &self.#name)?;
+                    }
                 }
             }
             _ => {
-                quote! {
-                    #to_str_func(f, self.#name)?;
+                if i != field_count - 1 {
+                    quote! {
+                        #to_str_func(f, self.#name)?;
+                            write!(f, " ")?;
+                    }
+                } else {
+                    quote! {
+                        #to_str_func(f, self.#name)?;
+                    }
                 }
             }
         }

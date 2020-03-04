@@ -181,4 +181,18 @@ mod test {
         let txt4 = TXT::from_str(&mut StringBuffer::new(r#""foo\"xx\" bar""#)).unwrap();
         assert_eq!(str::from_utf8(&txt4.data[0]).unwrap(), r#"foo"xx" bar"#);
     }
+
+    #[test]
+    fn test_rdata_to_str() {
+        //soa
+        let soa_str =
+            "a.gtld-servers.net. nstld.verisign-grs.com. 1579589122 1800 900 604800 86400";
+        let soa = SOA::from_str(&mut StringBuffer::new(soa_str)).unwrap();
+        assert_eq!(soa.to_string(), soa_str);
+
+        //a
+        let a_str = "1.1.1.1";
+        let a = A::from_str(&mut StringBuffer::new(a_str)).unwrap();
+        assert_eq!(a.to_string(), a_str);
+    }
 }
