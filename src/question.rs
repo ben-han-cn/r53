@@ -30,6 +30,6 @@ impl Question {
 
 impl fmt::Display for Question {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {} {}\n", self.name, self.class, self.typ)
+        write!(f, "{} {} {}", self.name, self.class, self.typ)
     }
 }

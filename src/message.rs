@@ -165,7 +165,7 @@ impl fmt::Display for Message {
         }
 
         if let Some(question) = self.question.as_ref() {
-            writeln!(f, ";; QUESTION SECTION:\n{}", question)?;
+            writeln!(f, ";; QUESTION SECTION:\n{}\n", question)?;
         }
 
         if self.header.an_count > 0 {
