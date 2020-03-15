@@ -23,7 +23,7 @@ pub fn derive<'a>(node: &'a DeriveInput) -> Result<TokenStream> {
     })
 }
 
-pub fn derive_from_wire<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
+fn derive_from_wire<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
     let field_from_wire = rdata.fields.iter().map(|field| {
         let name = field.name;
         let from_wire_func = Ident::new(&format!("{}_from_wire", field.codec), field.name.span());
@@ -50,7 +50,7 @@ pub fn derive_from_wire<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
     })
 }
 
-pub fn derive_to_wire<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
+fn derive_to_wire<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
     let field_to_wire = rdata.fields.iter().map(|field| {
         let name = field.name;
         let to_wire_func = Ident::new(&format!("{}_to_wire", field.codec), field.name.span());
@@ -75,7 +75,7 @@ pub fn derive_to_wire<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
     })
 }
 
-pub fn derive_from_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
+fn derive_from_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
     let field_assignment = rdata.fields.iter().map(|field| {
         let name = field.name;
         let from_str_func = Ident::new(&format!("{}_from_str", field.display), field.name.span());
@@ -93,7 +93,7 @@ pub fn derive_from_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
     })
 }
 
-pub fn derive_to_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
+fn derive_to_str<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
     let field_count = rdata.fields.len();
     let field_to_str = rdata.fields.iter().enumerate().map(|(i, field)| {
         let name = field.name;
