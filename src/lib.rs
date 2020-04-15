@@ -5,6 +5,7 @@ pub mod label_sequence;
 pub mod label_slice;
 pub mod message;
 pub mod message_builder;
+pub mod message_iter;
 pub mod message_render;
 pub mod name;
 pub mod opcode;

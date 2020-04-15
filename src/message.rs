@@ -1,6 +1,7 @@
 use crate::edns::Edns;
 use crate::header::Header;
 use crate::header_flag::HeaderFlag;
+use crate::message_iter::MessageIter;
 use crate::message_render::MessageRender;
 use crate::name::Name;
 use crate::question::Question;
@@ -8,11 +9,11 @@ use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::rrset::RRset;
 use crate::util::InputBuffer;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use rand;
 use std::fmt;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum SectionType {
     Answer = 0,
     Authority = 1,
@@ -31,16 +32,23 @@ impl Section {
         })
     }
 
-    pub fn from_wire(buf: &mut InputBuffer, rr_count: u16) -> Result<Self> {
+    pub fn from_wire(buf: &mut InputBuffer, rr_count: u16, typ: SectionType) -> Result<Self> {
         if rr_count == 0 {
             return Ok(Section(None));
         }
 
         let mut rrsets = Vec::with_capacity(rr_count as usize);
         let mut last_rrset = RRset::from_wire(buf)?;
+        if last_rrset.typ == RRType::OPT && typ != SectionType::Additional {
+            bail!("opt record must resides in addtional section")
+        }
+
         for _ in 1..rr_count {
             let mut rrset = RRset::from_wire(buf)?;
             if rrset.is_same_rrset(&last_rrset) {
+                if rrset.typ == RRType::OPT {
+                    bail!("opt rrset can only have one rr");
+                }
                 last_rrset.rdatas.push(rrset.rdatas.remove(0));
             } else {
                 rrsets.push(last_rrset);
@@ -105,9 +113,9 @@ impl Message {
             None
         };
 
-        let answer = Section::from_wire(buf, header.an_count)?;
-        let auth = Section::from_wire(buf, header.ns_count)?;
-        let mut additional = Section::from_wire(buf, header.ar_count)?;
+        let answer = Section::from_wire(buf, header.an_count, SectionType::Answer)?;
+        let auth = Section::from_wire(buf, header.ns_count, SectionType::Authority)?;
+        let mut additional = Section::from_wire(buf, header.ar_count, SectionType::Additional)?;
 
         let mut edns = None;
         if header.ar_count > 0 {
@@ -155,6 +163,10 @@ impl Message {
     pub fn take_section(&mut self, section: SectionType) -> Option<Vec<RRset>> {
         self.sections[section as usize].0.take()
     }
+
+    pub fn iter(&self) -> MessageIter<'_> {
+        MessageIter::new(&self)
+    }
 }
 
 impl fmt::Display for Message {
@@ -180,6 +192,15 @@ impl fmt::Display for Message {
             write!(f, ";; ADDITIONAL SECTION:\n{}", self.sections[2])?;
         }
         Ok(())
+    }
+}
+
+impl<'a> IntoIterator for &'a Message {
+    type IntoIter = MessageIter<'a>;
+    type Item = (&'a RRset, SectionType);
+
+    fn into_iter(self) -> MessageIter<'a> {
+        MessageIter::new(self)
     }
 }
 

@@ -54,7 +54,11 @@ impl RRset {
         let ttl = RRTtl::from_wire(buf)?;
         let rdlen = buf.read_u16()?;
         let mut rdatas = Vec::with_capacity(1);
-        if rdlen > 0 {
+        if rdlen == 0 {
+            if typ != RRType::OPT {
+                bail!("only opt record could has zero rdata");
+            }
+        } else {
             let rdata = RData::from_wire(typ, buf, rdlen)?;
             rdatas.push(rdata);
         }
