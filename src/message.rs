@@ -23,6 +23,12 @@ pub enum SectionType {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Section(pub Option<Vec<RRset>>);
 
+pub const ALL_SECTIONS: &'static [SectionType] = &[
+    SectionType::Answer,
+    SectionType::Authority,
+    SectionType::Additional,
+];
+
 impl Section {
     fn rr_count(&self) -> usize {
         self.0.as_ref().map_or(0, |rrsets| {
@@ -158,6 +164,10 @@ impl Message {
 
     pub fn section(&self, section: SectionType) -> Option<&Vec<RRset>> {
         self.sections[section as usize].0.as_ref()
+    }
+
+    pub fn section_rrset_count(&self, section: SectionType) -> usize {
+        self.section(section).map_or(0, |rrsets| rrsets.len())
     }
 
     pub fn take_section(&mut self, section: SectionType) -> Option<Vec<RRset>> {

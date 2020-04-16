@@ -71,6 +71,28 @@ impl RRset {
         })
     }
 
+    pub fn from_strs(ss: &[&str]) -> Result<Self> {
+        assert!(!ss.is_empty());
+
+        let last = RRset::from_str(ss[0])?;
+        if ss.len() == 1 {
+            return Ok(last);
+        }
+
+        if last.typ == RRType::OPT {
+            bail!("opt rrset can only has one rr");
+        }
+
+        ss[1..].iter().try_fold(last, |mut rrset, s| {
+            let mut current = RRset::from_str(s)?;
+            if rrset.typ != current.typ {
+                bail!("rr in one rrset should has same type");
+            }
+            rrset.rdatas.push(current.rdatas.remove(0));
+            Ok(rrset)
+        })
+    }
+
     pub fn to_wire(&self, render: &mut MessageRender) {
         if self.rdatas.is_empty() {
             self.name.to_wire(render);

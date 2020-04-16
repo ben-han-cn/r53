@@ -48,19 +48,7 @@ impl<'a> MessageBuilder<'a> {
         self.set_flag(HeaderFlag::QueryRespone)
     }
 
-    pub fn add_answer(&mut self, rrset: RRset) -> &mut Self {
-        self.add_rrset_to_section(SectionType::Answer, rrset)
-    }
-
-    pub fn add_auth(&mut self, rrset: RRset) -> &mut Self {
-        self.add_rrset_to_section(SectionType::Authority, rrset)
-    }
-
-    pub fn add_additional(&mut self, rrset: RRset) -> &mut Self {
-        self.add_rrset_to_section(SectionType::Additional, rrset)
-    }
-
-    fn add_rrset_to_section(&mut self, section: SectionType, mut rrset: RRset) -> &mut Self {
+    pub fn add_rrset(&mut self, section: SectionType, mut rrset: RRset) -> &mut Self {
         if let Some(ref mut rrsets) = self.msg.section_mut(section) {
             if let Some(index) = rrsets.iter().position(|old| old.is_same_rrset(&rrset)) {
                 rrsets[index].rdatas.append(&mut rrset.rdatas);
@@ -73,7 +61,103 @@ impl<'a> MessageBuilder<'a> {
         self
     }
 
+    pub fn remove_rrset_by<F: FnMut(&RRset) -> bool>(
+        &mut self,
+        section: SectionType,
+        mut f: F,
+    ) -> &mut Self {
+        self.msg
+            .section_mut(section)
+            .map(|rrsets| rrsets.retain(|rrset| !f(rrset)));
+        self
+    }
+
     pub fn done(&mut self) {
         self.msg.recalculate_header();
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::RRType;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_message_builder() {
+        let www_knet_cn_response = vec![
+            4, 176, 132, 0, 0, 1, 0, 1, 0, 4, 0, 9, 3, 119, 119, 119, 4, 107, 110, 101, 116, 2, 99,
+            110, 0, 0, 1, 0, 1, 192, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 202, 173, 11, 42, 192, 16,
+            0, 2, 0, 1, 0, 0, 14, 16, 0, 20, 4, 118, 110, 115, 49, 9, 122, 100, 110, 115, 99, 108,
+            111, 117, 100, 3, 98, 105, 122, 0, 192, 16, 0, 2, 0, 1, 0, 0, 14, 16, 0, 20, 4, 105,
+            110, 115, 49, 9, 122, 100, 110, 115, 99, 108, 111, 117, 100, 3, 99, 111, 109, 0, 192,
+            16, 0, 2, 0, 1, 0, 0, 14, 16, 0, 21, 4, 100, 110, 115, 49, 9, 122, 100, 110, 115, 99,
+            108, 111, 117, 100, 4, 105, 110, 102, 111, 0, 192, 16, 0, 2, 0, 1, 0, 0, 14, 16, 0, 20,
+            4, 99, 110, 115, 49, 9, 122, 100, 110, 115, 99, 108, 111, 117, 100, 3, 110, 101, 116,
+            0, 192, 57, 0, 1, 0, 1, 0, 1, 81, 128, 0, 4, 203, 99, 22, 3, 192, 57, 0, 1, 0, 1, 0, 1,
+            81, 128, 0, 4, 203, 99, 23, 3, 192, 89, 0, 1, 0, 1, 0, 0, 14, 16, 0, 4, 27, 221, 63, 3,
+            192, 89, 0, 1, 0, 1, 0, 0, 14, 16, 0, 4, 119, 167, 244, 44, 192, 121, 0, 1, 0, 1, 0, 0,
+            14, 16, 0, 4, 114, 67, 46, 13, 192, 121, 0, 1, 0, 1, 0, 0, 14, 16, 0, 4, 114, 67, 46,
+            14, 192, 154, 0, 1, 0, 1, 0, 1, 81, 128, 0, 4, 42, 62, 2, 24, 192, 154, 0, 1, 0, 1, 0,
+            1, 81, 128, 0, 4, 42, 62, 2, 29, 0, 0, 41, 16, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let mut msg = Message::from_wire(www_knet_cn_response.as_slice()).unwrap();
+        let backup = msg.clone();
+
+        let answer = "www.knet.cn.     300     IN      A       202.173.11.42";
+        let additional1 = vec![
+            "vns1.zdnscloud.biz.	86400	IN	A	203.99.22.3",
+            "vns1.zdnscloud.biz.	86400	IN	A	203.99.23.3",
+        ];
+
+        let additional2 = vec![
+            "ins1.zdnscloud.com.	3600	IN	A	27.221.63.3",
+            "ins1.zdnscloud.com.	3600	IN	A	119.167.244.44",
+        ];
+
+        let additional3 = vec![
+            "dns1.zdnscloud.info.	3600	IN	A	114.67.46.13",
+            "dns1.zdnscloud.info.	3600	IN	A	114.67.46.14",
+        ];
+
+        let additional4 = vec![
+            "cns1.zdnscloud.net.	86400	IN	A	42.62.2.24",
+            "cns1.zdnscloud.net.	86400	IN	A	42.62.2.29",
+        ];
+        assert_eq!(msg.header.ar_count, 9);
+
+        let mut builder = MessageBuilder::new(&mut msg);
+        builder
+            .remove_rrset_by(SectionType::Answer, |rrset| rrset.typ == RRType::A)
+            .remove_rrset_by(SectionType::Additional, |rrset| rrset.typ == RRType::A)
+            .done();
+        assert_eq!(msg.header.an_count, 0);
+        assert_eq!(msg.section_rrset_count(SectionType::Answer), 0);
+        assert_eq!(msg.header.ns_count, 4);
+        assert_eq!(msg.section_rrset_count(SectionType::Authority), 1);
+        assert_eq!(msg.header.ar_count, 1);
+        assert_eq!(msg.section_rrset_count(SectionType::Additional), 0);
+
+        let mut builder = MessageBuilder::new(&mut msg);
+        builder
+            .add_rrset(SectionType::Answer, RRset::from_str(answer).unwrap())
+            .add_rrset(
+                SectionType::Additional,
+                RRset::from_strs(additional1.as_slice()).unwrap(),
+            )
+            .add_rrset(
+                SectionType::Additional,
+                RRset::from_strs(additional2.as_slice()).unwrap(),
+            )
+            .add_rrset(
+                SectionType::Additional,
+                RRset::from_strs(additional3.as_slice()).unwrap(),
+            )
+            .add_rrset(
+                SectionType::Additional,
+                RRset::from_strs(additional4.as_slice()).unwrap(),
+            )
+            .done();
+        assert_eq!(msg, backup);
     }
 }
