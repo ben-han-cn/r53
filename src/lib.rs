@@ -24,7 +24,7 @@ pub use header::Header;
 pub use header_flag::HeaderFlag;
 pub use label_sequence::LabelSequence;
 pub use label_slice::LabelSlice;
-pub use message::{Message, ALL_SECTIONS};
+pub use message::{Message, SectionType, ALL_SECTIONS};
 pub use message_builder::MessageBuilder;
 pub use message_render::MessageRender;
 pub use name::Name;
