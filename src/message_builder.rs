@@ -1,9 +1,13 @@
 use crate::edns::Edns;
 use crate::header_flag::HeaderFlag;
 use crate::message::{Message, Section, SectionType};
+use crate::name::Name;
 use crate::opcode::Opcode;
 use crate::rcode::Rcode;
+use crate::rr_type::RRType;
 use crate::rrset::RRset;
+use anyhow::Result;
+use std::str::FromStr;
 
 pub struct MessageBuilder<'a> {
     msg: &'a mut Message,
@@ -75,6 +79,38 @@ impl<'a> MessageBuilder<'a> {
     pub fn done(&mut self) {
         self.msg.recalculate_header();
     }
+}
+
+pub fn build_response(
+    name: &str,
+    typ: RRType,
+    answers: Vec<Vec<&str>>,
+    authorities: Vec<Vec<&str>>,
+    additionals: Vec<Vec<&str>>,
+    udp_size: Option<usize>,
+) -> Result<Message> {
+    let mut msg = Message::with_query(Name::from_str(name)?, typ);
+    let mut builder = MessageBuilder::new(&mut msg);
+    for rrset in answers {
+        builder.add_rrset(SectionType::Answer, RRset::from_strs(rrset.as_slice())?);
+    }
+    for rrset in authorities {
+        builder.add_rrset(SectionType::Authority, RRset::from_strs(rrset.as_slice())?);
+    }
+    for rrset in additionals {
+        builder.add_rrset(SectionType::Additional, RRset::from_strs(rrset.as_slice())?);
+    }
+    if let Some(udp_size) = udp_size {
+        builder.edns(Edns {
+            versoin: 0,
+            extened_rcode: 0,
+            udp_size: udp_size as u16,
+            dnssec_aware: false,
+            options: None,
+        });
+    }
+    builder.make_response().done();
+    Ok(msg)
 }
 
 #[cfg(test)]
@@ -159,5 +195,72 @@ mod test {
             )
             .done();
         assert_eq!(msg, backup);
+    }
+
+    #[test]
+    fn test_build_response() {
+        let www_knet_cn_response = vec![
+            4, 176, 132, 0, 0, 1, 0, 1, 0, 4, 0, 9, 3, 119, 119, 119, 4, 107, 110, 101, 116, 2, 99,
+            110, 0, 0, 1, 0, 1, 192, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 202, 173, 11, 42, 192, 16,
+            0, 2, 0, 1, 0, 0, 14, 16, 0, 20, 4, 118, 110, 115, 49, 9, 122, 100, 110, 115, 99, 108,
+            111, 117, 100, 3, 98, 105, 122, 0, 192, 16, 0, 2, 0, 1, 0, 0, 14, 16, 0, 20, 4, 105,
+            110, 115, 49, 9, 122, 100, 110, 115, 99, 108, 111, 117, 100, 3, 99, 111, 109, 0, 192,
+            16, 0, 2, 0, 1, 0, 0, 14, 16, 0, 21, 4, 100, 110, 115, 49, 9, 122, 100, 110, 115, 99,
+            108, 111, 117, 100, 4, 105, 110, 102, 111, 0, 192, 16, 0, 2, 0, 1, 0, 0, 14, 16, 0, 20,
+            4, 99, 110, 115, 49, 9, 122, 100, 110, 115, 99, 108, 111, 117, 100, 3, 110, 101, 116,
+            0, 192, 57, 0, 1, 0, 1, 0, 1, 81, 128, 0, 4, 203, 99, 22, 3, 192, 57, 0, 1, 0, 1, 0, 1,
+            81, 128, 0, 4, 203, 99, 23, 3, 192, 89, 0, 1, 0, 1, 0, 0, 14, 16, 0, 4, 27, 221, 63, 3,
+            192, 89, 0, 1, 0, 1, 0, 0, 14, 16, 0, 4, 119, 167, 244, 44, 192, 121, 0, 1, 0, 1, 0, 0,
+            14, 16, 0, 4, 114, 67, 46, 13, 192, 121, 0, 1, 0, 1, 0, 0, 14, 16, 0, 4, 114, 67, 46,
+            14, 192, 154, 0, 1, 0, 1, 0, 1, 81, 128, 0, 4, 42, 62, 2, 24, 192, 154, 0, 1, 0, 1, 0,
+            1, 81, 128, 0, 4, 42, 62, 2, 29, 0, 0, 41, 16, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let target = Message::from_wire(www_knet_cn_response.as_slice()).unwrap();
+
+        let qname = "www.knet.cn.";
+        let answers = vec![vec![
+            "www.knet.cn.    300     IN      A       202.173.11.42",
+        ]];
+        let authorities = vec![vec![
+            "knet.cn.        3600    IN      NS      vns1.zdnscloud.biz.",
+            "knet.cn.        3600    IN      NS      ins1.zdnscloud.com.",
+            "knet.cn.        3600    IN      NS      dns1.zdnscloud.info.",
+            "knet.cn.        3600    IN      NS      cns1.zdnscloud.net.",
+        ]];
+
+        let additionals = vec![
+            vec![
+                "vns1.zdnscloud.biz.     86400   IN      A       203.99.22.3",
+                "vns1.zdnscloud.biz.     86400   IN      A       203.99.23.3",
+            ],
+            vec![
+                "ins1.zdnscloud.com.     3600    IN      A       27.221.63.3",
+                "ins1.zdnscloud.com.     3600    IN      A       119.167.244.44",
+            ],
+            vec![
+                "dns1.zdnscloud.info.    3600    IN      A       114.67.46.13",
+                "dns1.zdnscloud.info.    3600    IN      A       114.67.46.14",
+            ],
+            vec![
+                "cns1.zdnscloud.net.     86400   IN      A       42.62.2.24",
+                "cns1.zdnscloud.net.     86400   IN      A       42.62.2.29",
+            ],
+        ];
+
+        let mut build_msg = build_response(
+            qname,
+            RRType::A,
+            answers,
+            authorities,
+            additionals,
+            Some(4096),
+        )
+        .unwrap();
+        build_msg.header.id = 1200;
+        build_msg.header.set_flag(HeaderFlag::AuthAnswer, true);
+        build_msg
+            .header
+            .set_flag(HeaderFlag::RecursionDesired, false);
+        assert_eq!(target, build_msg);
     }
 }

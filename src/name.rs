@@ -819,6 +819,7 @@ mod test {
                 && knet.is_subdomain(&root)
                 && www_knet_cn.is_subdomain(&root)
                 && www_knet.is_subdomain(&root)
+                && www_knet.is_subdomain(&www_knet)
                 && root.is_subdomain(&root)
         );
         assert!(
