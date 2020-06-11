@@ -11,6 +11,16 @@ struct OffSetItem {
     hash: u32,
 }
 
+impl Default for OffSetItem {
+    fn default() -> Self {
+        OffSetItem {
+            len: 0,
+            pos: 0,
+            hash: 0,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct NameComparator<'a> {
     buffer: &'a OutputBuffer,
@@ -98,12 +108,13 @@ impl<'a> NameComparator<'a> {
 const BUCKETS: usize = 64;
 const RESERVED_ITEMS: usize = 16;
 const NO_OFFSET: u16 = 65535;
-const MAX_MESSAGE_LEN: u32 = 512;
+const MAX_MESSAGE_LEN: usize = 512;
 
 pub struct MessageRender {
     buffer: OutputBuffer,
     truncated: bool,
-    table: Vec<Vec<OffSetItem>>,
+    table: [[OffSetItem; RESERVED_ITEMS]; BUCKETS],
+    item_counts: [usize; BUCKETS],
     label_hashes: [u32; MAX_LABEL_COUNT as usize],
 }
 
@@ -115,19 +126,17 @@ impl Default for MessageRender {
 
 impl MessageRender {
     pub fn new() -> Self {
-        let mut render = MessageRender {
-            buffer: OutputBuffer::new(MAX_MESSAGE_LEN as usize),
-            truncated: false,
-            table: Vec::new(),
-            label_hashes: [0; MAX_LABEL_COUNT as usize],
-        };
+        Self::with_capacity(MAX_MESSAGE_LEN)
+    }
 
-        for _ in 0..BUCKETS {
-            let mut items = Vec::new();
-            items.reserve(RESERVED_ITEMS);
-            render.table.push(items);
+    pub fn with_capacity(len: usize) -> Self {
+        MessageRender {
+            buffer: OutputBuffer::new(len),
+            truncated: false,
+            table: [[OffSetItem::default(); RESERVED_ITEMS]; BUCKETS],
+            item_counts: [0; BUCKETS],
+            label_hashes: [0; MAX_LABEL_COUNT as usize],
         }
-        render
     }
 
     pub fn is_trancated(&self) -> bool {
@@ -138,34 +147,40 @@ impl MessageRender {
         self.truncated = true;
     }
 
-    pub fn find_offset(&self, name_buffer: &mut InputBuffer, hash: u32) -> u16 {
+    fn find_offset(&self, name_buffer: &mut InputBuffer, hash: u32) -> u16 {
         let bucket_id = hash % (BUCKETS as u32);
         let comparator = NameComparator {
             buffer: &self.buffer,
             hash,
         };
-        for item in &self.table[bucket_id as usize] {
-            if comparator.compare(*item, name_buffer) {
-                return item.pos;
+        let items = &self.table[bucket_id as usize];
+        for i in 0..self.item_counts[bucket_id as usize] {
+            if comparator.compare(items[i], name_buffer) {
+                return items[i].pos;
             }
         }
         NO_OFFSET
     }
 
-    pub fn add_offset(&mut self, hash: u32, offset: u16, len: u8) {
+    fn add_offset(&mut self, hash: u32, offset: u16, len: u8) {
         let bucket_id = hash % (BUCKETS as u32);
-        self.table[bucket_id as usize].push(OffSetItem {
+        let item_count = self.item_counts[bucket_id as usize];
+        if item_count + 1 == RESERVED_ITEMS {
+            panic!("too many offset with same hash");
+        }
+        self.table[bucket_id as usize][item_count] = OffSetItem {
             hash,
             pos: offset,
             len,
-        });
+        };
+        self.item_counts[bucket_id as usize] = item_count + 1;
     }
 
     pub fn clear(&mut self) {
         self.buffer.clear();
         self.truncated = false;
         for i in 0..BUCKETS {
-            self.table[i].clear()
+            self.item_counts[i] = 0;
         }
     }
 
@@ -249,10 +264,6 @@ impl MessageRender {
         self.buffer.skip(len);
     }
 
-    pub fn trim(&mut self, len: usize) {
-        self.buffer.trim(len);
-    }
-
     pub fn write_u8(&mut self, d: u8) {
         self.buffer.write_u8(d);
     }
@@ -290,7 +301,7 @@ mod test {
         let a_example_com = Name::new("a.example.com").unwrap();
         let b_example_com = Name::new("b.example.com").unwrap();
         let a_example_org = Name::new("a.example.org").unwrap();
-        let mut render = MessageRender::new();
+        let mut render = MessageRender::with_capacity(0x3fff + MAX_MESSAGE_LEN);
 
         let raw = from_hex("0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700")
             .unwrap();
@@ -323,22 +334,10 @@ mod test {
         render.write_name(&b_example_com, true);
         render.write_name(&b_example_com, true);
         assert_eq!(raw.as_slice(), render.data());
-        render.take_data();
-
-        /*
-        let raw = from_hex("0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700")
-            .unwrap();
-        render.clear();
-        let b_example_com_cs = Name::new("b.exAmple.CoM").unwrap();
-        render.write_name(&a_example_com, true);
-        render.write_name(&b_example_com_cs, false);
-        render.write_name(&a_example_org, true);
-        assert_eq!(raw.as_slice(), render.data());
-        */
 
         let raw =
             from_hex("e3808583000100000001000001320131033136380331393207696e2d61646472046172706100000c0001033136380331393207494e2d4144445204415250410000060001000151800017c02a00000000000000708000001c2000093a8000015180").unwrap();
-        //render.clear();
+        render.clear();
         let msg = Message::from_wire(raw.as_slice()).unwrap();
         msg.to_wire(&mut render);
         assert_eq!(raw.as_slice(), render.data());

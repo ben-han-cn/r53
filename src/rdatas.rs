@@ -60,6 +60,7 @@ pub struct NS {
     #[field(codec = "name", display = "name")]
     pub name: Name,
 }
+
 #[derive(Debug, Clone, Eq, PartialEq, Rdata)]
 pub struct PTR {
     #[field(codec = "name", display = "name")]
