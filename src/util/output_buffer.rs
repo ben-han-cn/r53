@@ -44,7 +44,7 @@ impl<'a> OutputBuffer<'a> {
 
     pub fn write_u8(&mut self, d: u8) -> Result<()> {
         let pos = self.len();
-        if pos + 1 <= self.capacity() {
+        if pos < self.capacity() {
             self.data[pos] = d;
             self.len += 1;
             Ok(())

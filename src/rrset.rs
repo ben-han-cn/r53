@@ -16,8 +16,8 @@ impl RRTtl {
         buf.read_u32().map(RRTtl)
     }
 
-    pub fn to_wire(self, render: &mut MessageRender) {
-        render.write_u32(self.0);
+    pub fn to_wire(self, render: &mut MessageRender) -> Result<()> {
+        render.write_u32(self.0)
     }
 }
 
@@ -93,26 +93,27 @@ impl RRset {
         })
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
         if self.rdatas.is_empty() {
-            self.name.to_wire(render);
-            self.typ.to_wire(render);
-            self.class.to_wire(render);
-            self.ttl.to_wire(render);
-            render.write_u16(0);
+            self.name.to_wire(render)?;
+            self.typ.to_wire(render)?;
+            self.class.to_wire(render)?;
+            self.ttl.to_wire(render)?;
+            render.write_u16(0)?;
         } else {
-            self.rdatas.iter().for_each(|rdata| {
-                self.name.to_wire(render);
-                self.typ.to_wire(render);
-                self.class.to_wire(render);
-                self.ttl.to_wire(render);
+            for rdata in &self.rdatas {
+                self.name.to_wire(render)?;
+                self.typ.to_wire(render)?;
+                self.class.to_wire(render)?;
+                self.ttl.to_wire(render)?;
                 let pos = render.len();
-                render.skip(2);
-                rdata.to_wire(render);
+                render.skip(2)?;
+                rdata.to_wire(render)?;
                 let rdlen = render.len() - pos - 2;
-                render.write_u16_at(rdlen as u16, pos);
-            })
+                render.write_u16_at(rdlen as u16, pos)?;
+            }
         }
+        Ok(())
     }
 
     fn header(&self) -> String {
@@ -189,7 +190,7 @@ impl fmt::Display for RRset {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.rdatas
             .iter()
-            .map(|rdata| write!(f, "{}\t{}\n", self.header(), rdata))
+            .map(|rdata| writeln!(f, "{}\t{}", self.header(), rdata))
             .collect()
     }
 }

@@ -24,8 +24,8 @@ impl Default for OffSetItem {
 }
 
 #[derive(Clone, Copy)]
-struct NameComparator<'a> {
-    buffer: &'a OutputBuffer<'a>,
+struct NameComparator<'a, 'b> {
+    buffer: &'a OutputBuffer<'b>,
     hash: u32,
 }
 
@@ -65,52 +65,51 @@ impl<'a> NameRef<'a> {
     }
 }
 
-impl<'a> NameComparator<'a> {
-    pub fn compare(self, item: OffSetItem, name_buffer: &mut InputBuffer) -> bool {
+impl<'a, 'b> NameComparator<'a, 'b> {
+    pub fn compare(self, item: OffSetItem, name_buffer: &mut InputBuffer) -> Result<bool> {
         if item.hash != self.hash || item.len != (name_buffer.len() as u8) {
-            return false;
+            return Ok(false);
         }
 
         let mut item_pos = item.pos;
         loop {
-            let label = self.next_label(item_pos);
-            let mut name_label_len = name_buffer.read_u8().unwrap();
+            let label = self.next_label(item_pos)?;
+            let mut name_label_len = name_buffer.read_u8()?;
             if name_label_len != label.0 {
-                return false;
+                return Ok(false);
             } else if name_label_len == 0 {
                 break;
             }
 
             item_pos = label.1;
             while name_label_len > 0 {
-                let ch1 = self.buffer.at(item_pos as usize).unwrap();
-                let ch2 = name_buffer.read_u8().unwrap();
+                let ch1 = self.buffer.at(item_pos as usize)?;
+                let ch2 = name_buffer.read_u8()?;
                 if ch1 != ch2 {
-                    return false;
+                    return Ok(false);
                 }
                 item_pos += 1;
                 name_label_len -= 1;
             }
         }
-        true
+        Ok(true)
     }
 
-    fn next_label(&self, pos: u16) -> (u8, u16) {
+    fn next_label(&self, pos: u16) -> Result<(u8, u16)> {
         let mut next_pos = pos as usize;
-        let mut b = self.buffer.at(next_pos).unwrap();
+        let mut b = self.buffer.at(next_pos)?;
         while b & COMPRESS_POINTER_MARK8 == COMPRESS_POINTER_MARK8 {
-            let nb = u16::from(self.buffer.at(next_pos + 1).unwrap());
+            let nb = u16::from(self.buffer.at(next_pos + 1)?);
             next_pos = (u16::from(b & !(COMPRESS_POINTER_MARK8 as u8)) * 256 + nb) as usize;
-            b = self.buffer.at(next_pos).unwrap();
+            b = self.buffer.at(next_pos)?;
         }
-        (b, (next_pos + 1) as u16)
+        Ok((b, (next_pos + 1) as u16))
     }
 }
 
 const BUCKETS: usize = 64;
 const RESERVED_ITEMS: usize = 16;
 const NO_OFFSET: u16 = 65535;
-const MAX_MESSAGE_LEN: usize = 512;
 
 pub struct MessageRender<'a> {
     buffer: OutputBuffer<'a>,
@@ -139,19 +138,20 @@ impl<'a> MessageRender<'a> {
         self.truncated = true;
     }
 
-    fn find_offset(&self, name_buffer: &mut InputBuffer, hash: u32) -> u16 {
+    fn find_offset(&self, name_buffer: &mut InputBuffer, hash: u32) -> Result<u16> {
         let bucket_id = hash % (BUCKETS as u32);
         let comparator = NameComparator {
             buffer: &self.buffer,
             hash,
         };
         let items = &self.table[bucket_id as usize];
-        for i in 0..self.item_counts[bucket_id as usize] {
-            if comparator.compare(items[i], name_buffer) {
-                return items[i].pos;
+        let item_count = self.item_counts[bucket_id as usize];
+        for item in &items[0..item_count] {
+            if comparator.compare(*item, name_buffer)? {
+                return Ok(item.pos);
             }
         }
-        NO_OFFSET
+        Ok(NO_OFFSET)
     }
 
     fn add_offset(&mut self, hash: u32, offset: u16, len: u8) {
@@ -189,7 +189,7 @@ impl<'a> MessageRender<'a> {
                 offset = self.find_offset(
                     &mut InputBuffer::new(parent.raw_data()),
                     self.label_hashes[label_uncompressed],
-                );
+                )?;
                 if offset != NO_OFFSET {
                     break;
                 }
@@ -213,7 +213,7 @@ impl<'a> MessageRender<'a> {
 
         let mut name_len = name.len();
         for i in 0..label_uncompressed {
-            let label_len = self.buffer.at(name_pos).unwrap();
+            let label_len = self.buffer.at(name_pos)?;
             if label_len == 0 {
                 break;
             }
@@ -279,7 +279,7 @@ mod test {
         let a_example_com = Name::new("a.example.com").unwrap();
         let b_example_com = Name::new("b.example.com").unwrap();
         let a_example_org = Name::new("a.example.org").unwrap();
-        let mut buf = [0; 0x3fff + MAX_MESSAGE_LEN];
+        let mut buf = [0; 0x3fff + 512];
         let mut render = MessageRender::new(&mut buf);
 
         let raw = from_hex("0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700")
@@ -318,7 +318,7 @@ mod test {
             from_hex("e3808583000100000001000001320131033136380331393207696e2d61646472046172706100000c0001033136380331393207494e2d4144445204415250410000060001000151800017c02a00000000000000708000001c2000093a8000015180").unwrap();
         let mut render = MessageRender::new(&mut buf);
         let msg = Message::from_wire(raw.as_slice()).unwrap();
-        msg.to_wire(&mut render);
-        assert_eq!(raw.as_slice(), &buf[0..raw.len()]);
+        let len = msg.to_wire(&mut render).unwrap();
+        assert_eq!(raw.as_slice(), &buf[0..len]);
     }
 }

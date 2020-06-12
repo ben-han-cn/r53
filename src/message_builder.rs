@@ -70,9 +70,9 @@ impl<'a> MessageBuilder<'a> {
         section: SectionType,
         mut f: F,
     ) -> &mut Self {
-        self.msg
-            .section_mut(section)
-            .map(|rrsets| rrsets.retain(|rrset| !f(rrset)));
+        if let Some(rrsets) = self.msg.section_mut(section) {
+            rrsets.retain(|rrset| !f(rrset));
+        }
         self
     }
 

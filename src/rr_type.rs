@@ -120,8 +120,8 @@ impl RRType {
         buf.read_u16().map(RRType::new)
     }
 
-    pub fn to_wire(self, render: &mut MessageRender) {
-        render.write_u16(self.to_u16());
+    pub fn to_wire(self, render: &mut MessageRender) -> Result<()> {
+        render.write_u16(self.to_u16())
     }
 }
 

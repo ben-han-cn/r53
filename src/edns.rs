@@ -4,6 +4,8 @@ use crate::rr_type::RRType;
 use crate::rrset::{RRTtl, RRset};
 use std::fmt;
 
+use anyhow::Result;
+
 const VERSION_SHIFT: u32 = 16;
 const EXTRCODE_SHIFT: u32 = 24;
 const VERSION_MASK: u32 = 0x00ff_0000;
@@ -35,18 +37,18 @@ impl Edns {
         }
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
         let mut flags = u32::from(self.extened_rcode) << EXTRCODE_SHIFT;
         flags |= (u32::from(self.versoin) << VERSION_SHIFT) & VERSION_MASK;
         if self.dnssec_aware {
             flags |= EXTFLAG_DO;
         }
 
-        render.write_u8(0);
-        RRType::OPT.to_wire(render);
-        RRClass::Unknown(self.udp_size).to_wire(render);
-        RRTtl(flags).to_wire(render);
-        render.write_u16(0);
+        render.write_u8(0)?;
+        RRType::OPT.to_wire(render)?;
+        RRClass::Unknown(self.udp_size).to_wire(render)?;
+        RRTtl(flags).to_wire(render)?;
+        render.write_u16(0)
     }
 
     pub fn rr_count(&self) -> usize {

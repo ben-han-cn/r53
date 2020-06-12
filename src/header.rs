@@ -68,13 +68,13 @@ impl Header {
         }
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
-        render.write_u16(self.id);
-        render.write_u16(self.header_flag());
-        render.write_u16(self.qd_count);
-        render.write_u16(self.an_count);
-        render.write_u16(self.ns_count);
-        render.write_u16(self.ar_count);
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
+        render.write_u16(self.id)?;
+        render.write_u16(self.header_flag())?;
+        render.write_u16(self.qd_count)?;
+        render.write_u16(self.an_count)?;
+        render.write_u16(self.ns_count)?;
+        render.write_u16(self.ar_count)
     }
 
     fn header_flag(&self) -> u16 {

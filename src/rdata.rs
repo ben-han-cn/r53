@@ -49,7 +49,7 @@ impl RData {
         }
     }
 
-    pub fn to_wire(&self, to_wireer: &mut MessageRender) {
+    pub fn to_wire(&self, to_wireer: &mut MessageRender) -> Result<()> {
         match *self {
             RData::A(ref a) => a.to_wire(to_wireer),
             RData::AAAA(ref aaaa) => aaaa.to_wire(to_wireer),
@@ -67,7 +67,7 @@ impl RData {
 
     pub fn from_str(typ: RRType, s: &str) -> Result<Self> {
         let mut buf = StringBuffer::new(s);
-        return Self::from_buffer(typ, &mut buf);
+        Self::from_buffer(typ, &mut buf)
     }
 
     pub fn from_buffer(typ: RRType, buf: &mut StringBuffer) -> Result<Self> {

@@ -10,7 +10,6 @@ use crate::rr_type::RRType;
 use crate::rrset::RRset;
 use crate::util::InputBuffer;
 use anyhow::{bail, Result};
-use rand;
 use std::fmt;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -23,7 +22,7 @@ pub enum SectionType {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Section(pub Option<Vec<RRset>>);
 
-pub const ALL_SECTIONS: &'static [SectionType] = &[
+pub const ALL_SECTIONS: &[SectionType] = &[
     SectionType::Answer,
     SectionType::Authority,
     SectionType::Additional,
@@ -65,10 +64,13 @@ impl Section {
         Ok(Section(Some(rrsets)))
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
         if let Some(rrsets) = self.0.as_ref() {
-            rrsets.iter().for_each(|rrset| rrset.to_wire(render));
+            for rrset in rrsets {
+                rrset.to_wire(render)?;
+            }
         }
+        Ok(())
     }
 }
 
@@ -147,15 +149,18 @@ impl Message {
         self.header.ar_count += self.edns.as_ref().map_or(0, |edns| edns.rr_count() as u16);
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
-        self.header.to_wire(render);
-        self.question.as_ref().map(|q| q.to_wire(render));
-        self.sections
-            .iter()
-            .for_each(|section| section.to_wire(render));
-        if let Some(edns) = self.edns.as_ref() {
-            edns.to_wire(render)
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<usize> {
+        self.header.to_wire(render)?;
+        if let Some(ref question) = self.question {
+            question.to_wire(render)?;
         }
+        for section in &self.sections {
+            section.to_wire(render)?;
+        }
+        if let Some(edns) = self.edns.as_ref() {
+            edns.to_wire(render)?;
+        }
+        Ok((render.len()))
     }
 
     pub fn section_mut(&mut self, section: SectionType) -> Option<&mut Vec<RRset>> {

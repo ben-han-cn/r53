@@ -21,10 +21,10 @@ impl Question {
         Ok(Question { name, typ, class })
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
-        self.name.to_wire(render);
-        self.typ.to_wire(render);
-        self.class.to_wire(render);
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
+        self.name.to_wire(render)?;
+        self.typ.to_wire(render)?;
+        self.class.to_wire(render)
     }
 }
 

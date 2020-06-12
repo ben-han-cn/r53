@@ -21,8 +21,9 @@ impl<'a> MessageIter<'a> {
         let mut rrsets = Vec::with_capacity(len);
         if len > 0 {
             for typ in ALL_SECTIONS {
-                msg.section(*typ)
-                    .map(|rrsets_| rrsets_.iter().for_each(|rrset| rrsets.push(rrset)));
+                if let Some(rrsets_) = msg.section(*typ) {
+                    rrsets_.iter().for_each(|rrset| rrsets.push(rrset));
+                }
             }
         }
 

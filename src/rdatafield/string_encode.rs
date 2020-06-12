@@ -27,14 +27,14 @@ pub fn u32_to_str(f: &mut fmt::Formatter, num: u32) -> fmt::Result {
     write!(f, "{}", num)
 }
 
-pub fn text_to_str(f: &mut fmt::Formatter, data: &Vec<Vec<u8>>) -> fmt::Result {
+pub fn text_to_str(f: &mut fmt::Formatter, data: &[Vec<u8>]) -> fmt::Result {
     for d in data {
         string_to_str(f, d)?;
     }
     Ok(())
 }
 
-pub fn string_to_str(f: &mut fmt::Formatter, data: &Vec<u8>) -> fmt::Result {
+pub fn string_to_str(f: &mut fmt::Formatter, data: &[u8]) -> fmt::Result {
     let mut buf = Vec::new();
     for c in data {
         let ch = *c;
@@ -52,6 +52,6 @@ pub fn string_to_str(f: &mut fmt::Formatter, data: &Vec<u8>) -> fmt::Result {
     write!(f, "\"{}\"", unsafe { String::from_utf8_unchecked(buf) })
 }
 
-pub fn binary_to_str(f: &mut fmt::Formatter, data: &Vec<u8>) -> fmt::Result {
-    write!(f, "{}", to_hex(data.as_slice()))
+pub fn binary_to_str(f: &mut fmt::Formatter, data: &[u8]) -> fmt::Result {
+    write!(f, "{}", to_hex(data))
 }

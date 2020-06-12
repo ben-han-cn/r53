@@ -326,8 +326,8 @@ impl Name {
         self.offsets.len() as usize
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
-        render.write_name(self, true);
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
+        render.write_name(self, true)
     }
 
     pub fn into_label_sequence(mut self, first_label: usize, last_label: usize) -> LabelSequence {
@@ -650,13 +650,7 @@ impl PartialOrd for Name {
 impl Ord for Name {
     fn cmp(&self, other: &Name) -> Ordering {
         let relation = self.get_relation(other);
-        if relation.order < 0 {
-            Ordering::Less
-        } else if relation.order > 0 {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
+        relation.order.cmp(&0)
     }
 }
 
@@ -733,10 +727,12 @@ mod test {
         assert_eq!(relation.order, 0);
         assert_eq!(relation.common_label_count, 4);
         assert_eq!(relation.relation, NameRelation::Equal);
+        assert!(www_knet_cn == www_knet_cn_mix_case);
 
         let www_knet_com = Name::new("www.knet.com").unwrap();
         let relation = www_knet_cn.get_relation(&www_knet_com);
         assert!(relation.order < 0);
+        assert!(www_knet_cn < www_knet_com);
         assert_eq!(relation.common_label_count, 1);
         assert_eq!(relation.relation, NameRelation::CommonAncestor);
 
@@ -744,6 +740,7 @@ mod test {
         let www_baidu_com = Name::new("www.baidu.com").unwrap();
         let relation = baidu_com.get_relation(&www_baidu_com);
         assert!(relation.order < 0);
+        assert!(baidu_com < www_baidu_com);
         assert_eq!(relation.common_label_count, 3);
         assert_eq!(relation.relation, NameRelation::SuperDomain);
 
@@ -751,6 +748,7 @@ mod test {
         let range2 = Name::new("qI0.BUHM.n.").unwrap();
         let relation = range1.get_relation(&range2);
         assert!(relation.order > 0);
+        assert!(range1 > range2);
     }
 
     #[test]
