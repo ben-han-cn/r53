@@ -77,11 +77,12 @@ fn main() {
         options: None,
     });
     builder.done();
-    let mut render = MessageRender::new();
-    query.to_wire(&mut render);
-    socket.send_to(render.data(), server_addr).unwrap();
-
     let mut buf = [0; 1024];
+    let mut render = MessageRender::new(&mut buf);
+    query.to_wire(&mut render);
+    let len = render.len();
+    socket.send_to(&buf[0..len], server_addr).unwrap();
+
     match socket.recv_from(&mut buf) {
         Ok((len, _)) if len > 0 => {
             println!("{}", to_hex(&buf[0..len]));

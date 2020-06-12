@@ -87,8 +87,9 @@ mod test {
         };
         assert_eq!(edns, desired_edns);
 
-        let mut render = MessageRender::new();
+        let mut buf = [0; 512];
+        let mut render = MessageRender::new(&mut buf);
         desired_edns.to_wire(&mut render);
-        assert_eq!(raw.as_slice(), render.data());
+        assert_eq!(raw.as_slice(), &buf[0..(raw.len())]);
     }
 }

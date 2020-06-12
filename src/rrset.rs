@@ -99,7 +99,7 @@ impl RRset {
             self.typ.to_wire(render);
             self.class.to_wire(render);
             self.ttl.to_wire(render);
-            render.write_u16(0)
+            render.write_u16(0);
         } else {
             self.rdatas.iter().for_each(|rdata| {
                 self.name.to_wire(render);

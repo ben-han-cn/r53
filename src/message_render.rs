@@ -1,6 +1,8 @@
 use crate::name::{Name, COMPRESS_POINTER_MARK16, COMPRESS_POINTER_MARK8, MAX_LABEL_COUNT};
 use crate::util::{InputBuffer, OutputBuffer};
 
+use anyhow::Result;
+
 const MAX_COMPRESS_POINTER: usize = 0x3fff;
 const HASH_SEED: u32 = 0x9e37_79b9;
 
@@ -23,7 +25,7 @@ impl Default for OffSetItem {
 
 #[derive(Clone, Copy)]
 struct NameComparator<'a> {
-    buffer: &'a OutputBuffer,
+    buffer: &'a OutputBuffer<'a>,
     hash: u32,
 }
 
@@ -81,7 +83,7 @@ impl<'a> NameComparator<'a> {
 
             item_pos = label.1;
             while name_label_len > 0 {
-                let ch1 = self.buffer.at(item_pos as usize);
+                let ch1 = self.buffer.at(item_pos as usize).unwrap();
                 let ch2 = name_buffer.read_u8().unwrap();
                 if ch1 != ch2 {
                     return false;
@@ -95,11 +97,11 @@ impl<'a> NameComparator<'a> {
 
     fn next_label(&self, pos: u16) -> (u8, u16) {
         let mut next_pos = pos as usize;
-        let mut b = self.buffer.at(next_pos);
+        let mut b = self.buffer.at(next_pos).unwrap();
         while b & COMPRESS_POINTER_MARK8 == COMPRESS_POINTER_MARK8 {
-            let nb = u16::from(self.buffer.at(next_pos + 1));
+            let nb = u16::from(self.buffer.at(next_pos + 1).unwrap());
             next_pos = (u16::from(b & !(COMPRESS_POINTER_MARK8 as u8)) * 256 + nb) as usize;
-            b = self.buffer.at(next_pos);
+            b = self.buffer.at(next_pos).unwrap();
         }
         (b, (next_pos + 1) as u16)
     }
@@ -110,28 +112,18 @@ const RESERVED_ITEMS: usize = 16;
 const NO_OFFSET: u16 = 65535;
 const MAX_MESSAGE_LEN: usize = 512;
 
-pub struct MessageRender {
-    buffer: OutputBuffer,
+pub struct MessageRender<'a> {
+    buffer: OutputBuffer<'a>,
     truncated: bool,
     table: [[OffSetItem; RESERVED_ITEMS]; BUCKETS],
     item_counts: [usize; BUCKETS],
     label_hashes: [u32; MAX_LABEL_COUNT as usize],
 }
 
-impl Default for MessageRender {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl MessageRender {
-    pub fn new() -> Self {
-        Self::with_capacity(MAX_MESSAGE_LEN)
-    }
-
-    pub fn with_capacity(len: usize) -> Self {
+impl<'a> MessageRender<'a> {
+    pub fn new(buf: &'a mut [u8]) -> Self {
         MessageRender {
-            buffer: OutputBuffer::new(len),
+            buffer: OutputBuffer::new(buf),
             truncated: false,
             table: [[OffSetItem::default(); RESERVED_ITEMS]; BUCKETS],
             item_counts: [0; BUCKETS],
@@ -165,8 +157,9 @@ impl MessageRender {
     fn add_offset(&mut self, hash: u32, offset: u16, len: u8) {
         let bucket_id = hash % (BUCKETS as u32);
         let item_count = self.item_counts[bucket_id as usize];
+        //give up compress
         if item_count + 1 == RESERVED_ITEMS {
-            panic!("too many offset with same hash");
+            return;
         }
         self.table[bucket_id as usize][item_count] = OffSetItem {
             hash,
@@ -176,20 +169,11 @@ impl MessageRender {
         self.item_counts[bucket_id as usize] = item_count + 1;
     }
 
-    pub fn clear(&mut self) {
-        self.buffer.clear();
-        self.truncated = false;
-        for i in 0..BUCKETS {
-            self.item_counts[i] = 0;
-        }
-    }
-
-    pub fn write_name(&mut self, name: &Name, compress: bool) {
+    pub fn write_name(&mut self, name: &Name, compress: bool) -> Result<()> {
         let label_count = name.label_count();
         let mut label_uncompressed = 0;
         let mut offset = NO_OFFSET;
         let mut parent = NameRef::from_name(name);
-        //TODO, use reference instead of name copy to find offset
         while label_uncompressed < label_count {
             if label_uncompressed > 0 {
                 parent.parent();
@@ -215,20 +199,21 @@ impl MessageRender {
 
         let mut name_pos = self.buffer.len();
         if !compress || label_uncompressed == label_count {
-            self.buffer.write_bytes(name.raw_data());
+            self.buffer.write_bytes(name.raw_data())?;
         } else if label_uncompressed > 0 {
             let pos = name.offsets()[label_uncompressed as usize];
-            self.buffer.write_bytes(&name.raw_data()[0..(pos as usize)]);
+            self.buffer
+                .write_bytes(&name.raw_data()[0..(pos as usize)])?;
         }
 
         if compress && (offset != NO_OFFSET) {
             offset |= COMPRESS_POINTER_MARK16;
-            self.buffer.write_u16(offset);
+            self.buffer.write_u16(offset)?;
         }
 
         let mut name_len = name.len();
         for i in 0..label_uncompressed {
-            let label_len = self.buffer.at(name_pos);
+            let label_len = self.buffer.at(name_pos).unwrap();
             if label_len == 0 {
                 break;
             }
@@ -242,14 +227,7 @@ impl MessageRender {
             name_pos += (label_len + 1) as usize;
             name_len -= (label_len + 1) as usize;
         }
-    }
-
-    pub fn data(&self) -> &[u8] {
-        self.buffer.data()
-    }
-
-    pub fn take_data(&mut self) -> Vec<u8> {
-        self.buffer.take_data()
+        Ok(())
     }
 
     pub fn len(&self) -> usize {
@@ -260,32 +238,32 @@ impl MessageRender {
         self.buffer.len() == 0
     }
 
-    pub fn skip(&mut self, len: usize) {
-        self.buffer.skip(len);
+    pub fn skip(&mut self, len: usize) -> Result<()> {
+        self.buffer.skip(len)
     }
 
-    pub fn write_u8(&mut self, d: u8) {
-        self.buffer.write_u8(d);
+    pub fn write_u8(&mut self, d: u8) -> Result<()> {
+        self.buffer.write_u8(d)
     }
 
-    pub fn write_u8_at(&mut self, d: u8, pos: usize) {
+    pub fn write_u8_at(&mut self, d: u8, pos: usize) -> Result<()> {
         self.buffer.write_u8_at(d, pos)
     }
 
-    pub fn write_u16(&mut self, d: u16) {
-        self.buffer.write_u16(d);
+    pub fn write_u16(&mut self, d: u16) -> Result<()> {
+        self.buffer.write_u16(d)
     }
 
-    pub fn write_u16_at(&mut self, d: u16, pos: usize) {
+    pub fn write_u16_at(&mut self, d: u16, pos: usize) -> Result<()> {
         self.buffer.write_u16_at(d, pos)
     }
 
-    pub fn write_u32(&mut self, d: u32) {
-        self.buffer.write_u32(d);
+    pub fn write_u32(&mut self, d: u32) -> Result<()> {
+        self.buffer.write_u32(d)
     }
 
-    pub fn write_bytes(&mut self, data: &[u8]) {
-        self.buffer.write_bytes(data);
+    pub fn write_bytes(&mut self, data: &[u8]) -> Result<()> {
+        self.buffer.write_bytes(data)
     }
 }
 
@@ -301,45 +279,46 @@ mod test {
         let a_example_com = Name::new("a.example.com").unwrap();
         let b_example_com = Name::new("b.example.com").unwrap();
         let a_example_org = Name::new("a.example.org").unwrap();
-        let mut render = MessageRender::with_capacity(0x3fff + MAX_MESSAGE_LEN);
+        let mut buf = [0; 0x3fff + MAX_MESSAGE_LEN];
+        let mut render = MessageRender::new(&mut buf);
 
         let raw = from_hex("0161076578616d706c6503636f6d000162c0020161076578616d706c65036f726700")
             .unwrap();
         render.write_name(&a_example_com, true);
         render.write_name(&b_example_com, true);
         render.write_name(&a_example_org, true);
-        assert_eq!(raw.as_slice(), render.data());
+        assert_eq!(raw.as_slice(), &buf[0..raw.len()]);
 
         let raw =
             from_hex("0161076578616d706c6503636f6d00ffff0162076578616d706c6503636f6d00").unwrap();
-        render.clear();
+        let mut render = MessageRender::new(&mut buf);
         let offset: usize = 0x3fff;
         render.skip(offset);
         render.write_name(&a_example_com, true);
         render.write_name(&a_example_com, true);
         render.write_name(&b_example_com, true);
-        assert_eq!(raw.as_slice(), &render.data()[offset..]);
+        assert_eq!(raw.as_slice(), &buf[offset..(offset + raw.len())]);
 
         let raw =
             from_hex("0161076578616d706c6503636f6d000162076578616d706c6503636f6d00c00f").unwrap();
-        render.clear();
+        let mut render = MessageRender::new(&mut buf);
         render.write_name(&a_example_com, true);
         render.write_name(&b_example_com, false);
         render.write_name(&b_example_com, true);
-        assert_eq!(raw.as_slice(), render.data());
+        assert_eq!(raw.as_slice(), &buf[0..raw.len()]);
 
         let raw = from_hex("0161076578616d706c6503636f6d000162c002c00f").unwrap();
-        render.clear();
+        let mut render = MessageRender::new(&mut buf);
         render.write_name(&a_example_com, true);
         render.write_name(&b_example_com, true);
         render.write_name(&b_example_com, true);
-        assert_eq!(raw.as_slice(), render.data());
+        assert_eq!(raw.as_slice(), &buf[0..raw.len()]);
 
         let raw =
             from_hex("e3808583000100000001000001320131033136380331393207696e2d61646472046172706100000c0001033136380331393207494e2d4144445204415250410000060001000151800017c02a00000000000000708000001c2000093a8000015180").unwrap();
-        render.clear();
+        let mut render = MessageRender::new(&mut buf);
         let msg = Message::from_wire(raw.as_slice()).unwrap();
         msg.to_wire(&mut render);
-        assert_eq!(raw.as_slice(), render.data());
+        assert_eq!(raw.as_slice(), &buf[0..raw.len()]);
     }
 }

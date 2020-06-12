@@ -11,11 +11,15 @@ pub fn name_uncompressed_to_wire(render: &mut MessageRender, name: &Name) {
 }
 
 pub fn ipv4_to_wire(render: &mut MessageRender, addr: Ipv4Addr) {
-    addr.octets().iter().for_each(|x| render.write_u8(*x));
+    addr.octets()
+        .iter()
+        .for_each(|x| render.write_u8(*x).unwrap());
 }
 
 pub fn ipv6_to_wire(render: &mut MessageRender, addr: Ipv6Addr) {
-    addr.octets().iter().for_each(|x| render.write_u8(*x));
+    addr.octets()
+        .iter()
+        .for_each(|x| render.write_u8(*x).unwrap());
 }
 
 pub fn u8_to_wire(render: &mut MessageRender, num: u8) {

@@ -144,8 +144,9 @@ mod test {
         assert_eq!(header.ar_count, 2);
         assert!(header.is_flag_set(HeaderFlag::QueryRespone));
 
-        let mut render = MessageRender::new();
+        let mut buf = [0; 512];
+        let mut render = MessageRender::new(&mut buf);
         header.to_wire(&mut render);
-        assert_eq!(raw.as_slice(), render.data());
+        assert_eq!(raw.as_slice(), &buf[0..(raw.len())]);
     }
 }
