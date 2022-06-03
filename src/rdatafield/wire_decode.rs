@@ -1,4 +1,5 @@
 use crate::name::Name;
+use crate::rr_type::RRType;
 use crate::util::InputBuffer;
 use anyhow::{ensure, Result};
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -28,7 +29,7 @@ pub fn ipv4_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(Ipv4Addr, u16)
 }
 
 pub fn ipv6_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(Ipv6Addr, u16)> {
-    ensure!(len >= 16, "wire is too short for ipv6 address");
+    ensure!(len >= 16, "wire is too short for ipv6 address {}", len);
     let ip = buf.read_bytes(16).map(|bytes| {
         let mut octs = [0; 16];
         octs.copy_from_slice(bytes);
@@ -45,6 +46,11 @@ pub fn u8_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(u8, u16)> {
 pub fn u16_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(u16, u16)> {
     ensure!(len >= 2, "wire is too short for u16");
     Ok((buf.read_u16()?, len - 2))
+}
+
+pub fn rrtype_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(RRType, u16)> {
+    ensure!(len >= 2, "wire is too short for u16");
+    Ok((RRType::new(buf.read_u16()?), len - 2))
 }
 
 pub fn u32_from_wire(buf: &mut InputBuffer, len: u16) -> Result<(u32, u16)> {

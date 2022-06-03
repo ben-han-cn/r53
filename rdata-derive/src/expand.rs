@@ -57,20 +57,21 @@ fn derive_to_wire<'a>(rdata: &RdataStruct<'a>) -> Result<TokenStream> {
         match field.codec.as_ref() {
             "name" | "name_uncompressed" | "text" | "byte_binary" | "binary" => {
                 quote! {
-                    #to_wire_func(render, &self.#name);
+                    #to_wire_func(render, &self.#name)?;
                 }
             }
             _ => {
                 quote! {
-                    #to_wire_func(render, self.#name);
+                    #to_wire_func(render, self.#name)?;
                 }
             }
         }
     });
 
     Ok(quote! {
-            pub fn to_wire(&self, render: &mut MessageRender) {
+            pub fn to_wire(&self, render: &mut MessageRender) -> Result<()>{
                 #(#field_to_wire)*
+                Ok(())
             }
     })
 }

@@ -1,50 +1,56 @@
 use crate::edns::Edns;
 use crate::header_flag::HeaderFlag;
-use crate::message::{Message, Section, SectionType};
 use crate::name::Name;
 use crate::opcode::Opcode;
+use crate::question::Question;
 use crate::rcode::Rcode;
+use crate::response::{Response, Section, SectionType};
 use crate::rr_type::RRType;
 use crate::rrset::RRset;
 use anyhow::Result;
 use std::str::FromStr;
 
-pub struct MessageBuilder<'a> {
-    msg: &'a mut Message,
+pub struct ResponseBuilder<'a> {
+    resp: &'a mut Response,
 }
 
-impl<'a> MessageBuilder<'a> {
-    pub fn new(msg: &'a mut Message) -> Self {
-        MessageBuilder { msg }
+impl<'a> ResponseBuilder<'a> {
+    pub fn new(resp: &'a mut Response) -> Self {
+        ResponseBuilder { resp }
     }
 
     pub fn id(&mut self, id: u16) -> &mut Self {
-        self.msg.header.id = id;
+        self.resp.header.id = id;
         self
     }
 
     pub fn set_flag(&mut self, flag: HeaderFlag) -> &mut Self {
-        self.msg.header.set_flag(flag, true);
+        self.resp.header.set_flag(flag, true);
         self
     }
 
     pub fn clear_flag(&mut self, flag: HeaderFlag) -> &mut Self {
-        self.msg.header.set_flag(flag, false);
+        self.resp.header.set_flag(flag, false);
         self
     }
 
     pub fn opcode(&mut self, op: Opcode) -> &mut Self {
-        self.msg.header.opcode = op;
+        self.resp.header.opcode = op;
         self
     }
 
     pub fn rcode(&mut self, rcode: Rcode) -> &mut Self {
-        self.msg.header.rcode = rcode;
+        self.resp.header.rcode = rcode;
+        self
+    }
+
+    pub fn question(&mut self, question: Question) -> &mut Self {
+        self.resp.question = question;
         self
     }
 
     pub fn edns(&mut self, ed: Edns) -> &mut Self {
-        self.msg.edns = Some(ed);
+        self.add_rrset(SectionType::Additional, ed.to_rrset());
         self
     }
 
@@ -53,14 +59,14 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn add_rrset(&mut self, section: SectionType, mut rrset: RRset) -> &mut Self {
-        if let Some(ref mut rrsets) = self.msg.section_mut(section) {
+        if let Some(ref mut rrsets) = self.resp.section_mut(section) {
             if let Some(index) = rrsets.iter().position(|old| old.is_same_rrset(&rrset)) {
                 rrsets[index].rdatas.append(&mut rrset.rdatas);
             } else {
                 rrsets.push(rrset);
             }
         } else {
-            self.msg.sections[section as usize] = Section(Some(vec![rrset]));
+            self.resp.sections[section as usize] = Section(Some(vec![rrset]));
         }
         self
     }
@@ -70,27 +76,42 @@ impl<'a> MessageBuilder<'a> {
         section: SectionType,
         mut f: F,
     ) -> &mut Self {
-        self.msg
-            .section_mut(section)
-            .map(|rrsets| rrsets.retain(|rrset| !f(rrset)));
+        if let Some(rrsets) = self.resp.section_mut(section) {
+            rrsets.retain(|rrset| !f(rrset));
+        }
+        self
+    }
+
+    pub fn clear_section(&mut self, section: SectionType) -> &mut Self {
+        self.resp.clear_section(section);
+        self
+    }
+
+    pub fn with_section<F: FnOnce(Option<Vec<RRset>>) -> Option<Vec<RRset>>>(
+        &mut self,
+        section: SectionType,
+        f: F,
+    ) -> &mut Self {
+        let rrsets = self.resp.take_section(section);
+        self.resp.sections[section as usize] = Section(f(rrsets));
         self
     }
 
     pub fn done(&mut self) {
-        self.msg.recalculate_header();
+        self.resp.recalculate_header();
     }
 }
 
-pub fn build_response(
+pub fn build(
     name: &str,
     typ: RRType,
     answers: Vec<Vec<&str>>,
     authorities: Vec<Vec<&str>>,
     additionals: Vec<Vec<&str>>,
     udp_size: Option<usize>,
-) -> Result<Message> {
-    let mut msg = Message::with_query(Name::from_str(name)?, typ);
-    let mut builder = MessageBuilder::new(&mut msg);
+) -> Result<Response> {
+    let mut resp = Response::with_question(Name::from_str(name)?, typ);
+    let mut builder = ResponseBuilder::new(&mut resp);
     for rrset in answers {
         builder.add_rrset(SectionType::Answer, RRset::from_strs(rrset.as_slice())?);
     }
@@ -102,7 +123,7 @@ pub fn build_response(
     }
     if let Some(udp_size) = udp_size {
         builder.edns(Edns {
-            versoin: 0,
+            version: 0,
             extened_rcode: 0,
             udp_size: udp_size as u16,
             dnssec_aware: false,
@@ -110,7 +131,7 @@ pub fn build_response(
         });
     }
     builder.make_response().done();
-    Ok(msg)
+    Ok(resp)
 }
 
 #[cfg(test)]
@@ -137,8 +158,8 @@ mod test {
             14, 192, 154, 0, 1, 0, 1, 0, 1, 81, 128, 0, 4, 42, 62, 2, 24, 192, 154, 0, 1, 0, 1, 0,
             1, 81, 128, 0, 4, 42, 62, 2, 29, 0, 0, 41, 16, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let mut msg = Message::from_wire(www_knet_cn_response.as_slice()).unwrap();
-        let backup = msg.clone();
+        let mut resp = Response::from_wire(www_knet_cn_response.as_slice()).unwrap();
+        let backup = resp.clone();
 
         let answer = "www.knet.cn.     300     IN      A       202.173.11.42";
         let additional1 = vec![
@@ -160,23 +181,34 @@ mod test {
             "cns1.zdnscloud.net.	86400	IN	A	42.62.2.24",
             "cns1.zdnscloud.net.	86400	IN	A	42.62.2.29",
         ];
-        assert_eq!(msg.header.ar_count, 9);
+        assert_eq!(resp.header.ar_count, 9);
 
-        let mut builder = MessageBuilder::new(&mut msg);
+        let mut builder = ResponseBuilder::new(&mut resp);
         builder
             .remove_rrset_by(SectionType::Answer, |rrset| rrset.typ == RRType::A)
             .remove_rrset_by(SectionType::Additional, |rrset| rrset.typ == RRType::A)
+            .remove_rrset_by(SectionType::Additional, |rrset| rrset.typ == RRType::OPT)
             .done();
-        assert_eq!(msg.header.an_count, 0);
-        assert_eq!(msg.section_rrset_count(SectionType::Answer), 0);
-        assert_eq!(msg.header.ns_count, 4);
-        assert_eq!(msg.section_rrset_count(SectionType::Authority), 1);
-        assert_eq!(msg.header.ar_count, 1);
-        assert_eq!(msg.section_rrset_count(SectionType::Additional), 0);
+        assert_eq!(resp.header.an_count, 0);
+        assert_eq!(resp.section_rrset_count(SectionType::Answer), 0);
+        assert_eq!(resp.header.ns_count, 4);
+        assert_eq!(resp.section_rrset_count(SectionType::Authority), 1);
+        assert_eq!(resp.header.ar_count, 0);
+        assert_eq!(resp.section_rrset_count(SectionType::Additional), 0);
 
-        let mut builder = MessageBuilder::new(&mut msg);
+        let edns = Edns {
+            version: 0,
+            extened_rcode: 0,
+            udp_size: 4096,
+            dnssec_aware: false,
+            options: None,
+        };
+
+        let mut builder = ResponseBuilder::new(&mut resp);
         builder
-            .add_rrset(SectionType::Answer, RRset::from_str(answer).unwrap())
+            .with_section(SectionType::Answer, |_| -> Option<Vec<RRset>> {
+                Some(vec![RRset::from_str(answer).unwrap()])
+            })
             .add_rrset(
                 SectionType::Additional,
                 RRset::from_strs(additional1.as_slice()).unwrap(),
@@ -193,12 +225,17 @@ mod test {
                 SectionType::Additional,
                 RRset::from_strs(additional4.as_slice()).unwrap(),
             )
+            .edns(edns)
             .done();
-        assert_eq!(msg, backup);
+        assert_eq!(resp, backup);
+
+        let edns = resp.get_edns().unwrap();
+        assert_eq!(edns.version, 0);
+        assert_eq!(edns.udp_size, 4096);
     }
 
     #[test]
-    fn test_build_response() {
+    fn test_build() {
         let www_knet_cn_response = vec![
             4, 176, 132, 0, 0, 1, 0, 1, 0, 4, 0, 9, 3, 119, 119, 119, 4, 107, 110, 101, 116, 2, 99,
             110, 0, 0, 1, 0, 1, 192, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 202, 173, 11, 42, 192, 16,
@@ -215,7 +252,7 @@ mod test {
             14, 192, 154, 0, 1, 0, 1, 0, 1, 81, 128, 0, 4, 42, 62, 2, 24, 192, 154, 0, 1, 0, 1, 0,
             1, 81, 128, 0, 4, 42, 62, 2, 29, 0, 0, 41, 16, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let target = Message::from_wire(www_knet_cn_response.as_slice()).unwrap();
+        let target = Response::from_wire(www_knet_cn_response.as_slice()).unwrap();
 
         let qname = "www.knet.cn.";
         let answers = vec![vec![
@@ -247,7 +284,7 @@ mod test {
             ],
         ];
 
-        let mut build_msg = build_response(
+        let mut build_msg = build(
             qname,
             RRType::A,
             answers,

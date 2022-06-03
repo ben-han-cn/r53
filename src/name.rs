@@ -128,92 +128,88 @@ pub fn string_parse(
     let mut done = false;
     let mut is_root = false;
     let mut state = FtStat::Init;
-    let mut next_u8 = true;
-    let mut c: char = 0 as char;
+    let mut c: char;
 
     offsets.push(0);
-    loop {
-        if next_u8 {
-            if data.len() >= MAX_WIRE_LEN || start == end || done {
-                break;
-            }
-            c = name_raw[start] as char;
-            start += 1;
+    'outer: loop {
+        if data.len() >= MAX_WIRE_LEN || start == end {
+            break;
         }
+        c = name_raw[start] as char;
+        start += 1;
 
-        if state == FtStat::Init {
-            if c == '.' {
-                ensure!(start == end, "label isn't terminated");
-                is_root = true;
-            } else if c == '@' && start == end {
-                is_root = true;
-            }
+        'inner: loop {
+            if state == FtStat::Init {
+                if c == '.' {
+                    ensure!(start == end, "label isn't terminated");
+                    is_root = true;
+                } else if c == '@' && start == end {
+                    is_root = true;
+                }
 
-            if is_root {
-                data.push(0);
-                done = true;
-                break;
-            }
-            state = FtStat::Start;
-            next_u8 = false;
-        } else if state == FtStat::Start {
-            data.push(0);
-            count = 0;
-            if c == '\\' {
-                state = FtStat::Initialescape;
-                break;
-            }
-            state = FtStat::Ordinary;
-            next_u8 = false;
-        } else if state == FtStat::Ordinary {
-            if c == '.' {
-                ensure!(count != 0, "duplicate period in name");
-                data[offsets[offsets.len() - 1] as usize] = count;
-                offsets.push(data.len() as u8);
-                if start == end {
+                if is_root {
                     data.push(0);
                     done = true;
+                    break 'outer;
                 }
                 state = FtStat::Start;
-            } else if c == '\\' {
+            } else if state == FtStat::Start {
+                data.push(0);
+                count = 0;
+                if c == '\\' {
+                    state = FtStat::Initialescape;
+                } else {
+                    state = FtStat::Ordinary;
+                }
+            } else if state == FtStat::Ordinary {
+                if c == '.' {
+                    ensure!(count != 0, "duplicate period in name");
+                    data[offsets[offsets.len() - 1] as usize] = count;
+                    offsets.push(data.len() as u8);
+                    if start == end {
+                        data.push(0);
+                        done = true;
+                        break 'outer;
+                    }
+                    state = FtStat::Start;
+                } else if c == '\\' {
+                    state = FtStat::Escape;
+                } else {
+                    count += 1;
+                    ensure!(count <= MAX_LABEL_LEN, "label len exceed limit");
+                    data.push(c as u8);
+                }
+                break 'inner;
+            } else if state == FtStat::Initialescape {
+                ensure!(c != '[', "invalid label character");
                 state = FtStat::Escape;
+            } else if state == FtStat::Escape {
+                if !is_digit(c) {
+                    count += 1;
+                    ensure!(count <= MAX_LABEL_LEN, "label len exceed limit");
+                    data.push(c as u8);
+                    state = FtStat::Ordinary;
+                } else {
+                    digits = 0;
+                    value = 0;
+                    state = FtStat::Escdecimal;
+                }
+            } else if state == FtStat::Escdecimal {
+                ensure!(is_digit(c), "invalid decimal format");
+                value *= 10;
+                value += i32::from(digitvalue(c as usize));
+                digits += 1;
+                if digits == 3 {
+                    ensure!(value <= 255, "invalid decimal format");
+                    count += 1;
+                    ensure!(count <= MAX_LABEL_LEN, "label len exceed limit");
+                    data.push(c as u8);
+                    state = FtStat::Ordinary;
+                }
+                break 'inner;
             } else {
-                count += 1;
-                ensure!(count <= MAX_LABEL_LEN, "label len exceed limit");
-                data.push(c as u8);
+                panic!("impossible state");
             }
-            next_u8 = true;
-        } else if state == FtStat::Initialescape {
-            ensure!(c != '[', "invalid label character");
-            state = FtStat::Escape;
-            next_u8 = false;
-        } else if state == FtStat::Escape {
-            if !is_digit(c) {
-                count += 1;
-                ensure!(count <= MAX_LABEL_LEN, "label len exceed limit");
-                data.push(c as u8);
-                state = FtStat::Ordinary;
-                break;
-            }
-            digits = 0;
-            value = 0;
-            state = FtStat::Escdecimal;
-            next_u8 = false;
-        } else if state == FtStat::Escdecimal {
-            ensure!(is_digit(c), "invalid decimal format");
-            value *= 10;
-            value += i32::from(digitvalue(c as usize));
-            digits += 1;
-            if digits == 3 {
-                ensure!(value <= 255, "invalid decimal format");
-                count += 1;
-                ensure!(count <= MAX_LABEL_LEN, "label len exceed limit");
-                data.push(c as u8);
-                state = FtStat::Ordinary;
-            }
-            next_u8 = true;
-        } else {
-            panic!("impossible state");
         }
     }
 
@@ -300,14 +296,14 @@ impl Name {
                 ensure!(new_current < biggest_pointer, "invalid compress pointer");
                 biggest_pointer = new_current;
                 current = new_current;
-                buf.set_position(current);
+                buf.set_position(current)?;
                 seen_pointer = true;
                 state = FwStat::Start;
             }
         }
 
         ensure!(done, "in complete name");
-        buf.set_position(pos_beg + cused);
+        buf.set_position(pos_beg + cused)?;
         Ok(Name { raw: data, offsets })
     }
 
@@ -326,8 +322,8 @@ impl Name {
         self.offsets.len() as usize
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
-        render.write_name(self, true);
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
+        render.write_name(self, true)
     }
 
     pub fn into_label_sequence(mut self, first_label: usize, last_label: usize) -> LabelSequence {
@@ -539,9 +535,9 @@ impl Name {
         let new_label_count = self.label_count() as usize - label_count;
         let end_label = new_label_count - 1;
         let end_pos = self.offsets[end_label] as usize;
-        self.raw.split_off(end_pos + 1);
+        self.raw.truncate(end_pos + 1);
         self.raw[end_pos] = 0;
-        self.offsets.split_off(new_label_count);
+        self.offsets.truncate(new_label_count);
         self
     }
 
@@ -650,13 +646,7 @@ impl PartialOrd for Name {
 impl Ord for Name {
     fn cmp(&self, other: &Name) -> Ordering {
         let relation = self.get_relation(other);
-        if relation.order < 0 {
-            Ordering::Less
-        } else if relation.order > 0 {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
+        relation.order.cmp(&0)
     }
 }
 
@@ -671,6 +661,12 @@ impl Hash for Name {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_name_parse() {
+        let name: Name = "www.000.\\231\\167\\187\\229\\138\\168.".parse().unwrap();
+        assert_eq!(name.label_count(), 4);
+    }
 
     #[test]
     fn test_name_concat() {
@@ -733,10 +729,12 @@ mod test {
         assert_eq!(relation.order, 0);
         assert_eq!(relation.common_label_count, 4);
         assert_eq!(relation.relation, NameRelation::Equal);
+        assert!(www_knet_cn == www_knet_cn_mix_case);
 
         let www_knet_com = Name::new("www.knet.com").unwrap();
         let relation = www_knet_cn.get_relation(&www_knet_com);
         assert!(relation.order < 0);
+        assert!(www_knet_cn < www_knet_com);
         assert_eq!(relation.common_label_count, 1);
         assert_eq!(relation.relation, NameRelation::CommonAncestor);
 
@@ -744,6 +742,7 @@ mod test {
         let www_baidu_com = Name::new("www.baidu.com").unwrap();
         let relation = baidu_com.get_relation(&www_baidu_com);
         assert!(relation.order < 0);
+        assert!(baidu_com < www_baidu_com);
         assert_eq!(relation.common_label_count, 3);
         assert_eq!(relation.relation, NameRelation::SuperDomain);
 
@@ -751,6 +750,7 @@ mod test {
         let range2 = Name::new("qI0.BUHM.n.").unwrap();
         let relation = range1.get_relation(&range2);
         assert!(relation.order > 0);
+        assert!(range1 > range2);
     }
 
     #[test]

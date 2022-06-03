@@ -1,43 +1,54 @@
 use std::iter::FusedIterator;
 
-use crate::message::{Message, SectionType, ALL_SECTIONS};
+use crate::response::{Response, SectionType};
 use crate::rrset::RRset;
 
-pub struct MessageIter<'a> {
+pub struct ResponseIter<'a> {
     index: usize,
     back_index: usize,
     answer_rrset_count: usize,
     authority_rrset_count: usize,
     additional_rrset_count: usize,
-    rrsets: Vec<&'a RRset>,
+    msg: &'a Response,
 }
 
-impl<'a> MessageIter<'a> {
-    pub fn new(msg: &'a Message) -> Self {
+impl<'a> ResponseIter<'a> {
+    pub fn new(msg: &'a Response) -> Self {
         let answer_rrset_count = msg.section_rrset_count(SectionType::Answer);
         let authority_rrset_count = msg.section_rrset_count(SectionType::Authority);
         let additional_rrset_count = msg.section_rrset_count(SectionType::Additional);
         let len = answer_rrset_count + additional_rrset_count + authority_rrset_count;
-        let mut rrsets = Vec::with_capacity(len);
-        if len > 0 {
-            for typ in ALL_SECTIONS {
-                msg.section(*typ)
-                    .map(|rrsets_| rrsets_.iter().for_each(|rrset| rrsets.push(rrset)));
-            }
-        }
 
-        MessageIter {
+        ResponseIter {
             index: 0,
             back_index: len,
             answer_rrset_count,
             authority_rrset_count,
             additional_rrset_count,
-            rrsets,
+            msg,
         }
+    }
+
+    fn get_rrset_at_index(&self, index: usize) -> (&'a RRset, SectionType) {
+        let (typ, pos_in_section) = if index < self.answer_rrset_count {
+            (SectionType::Answer, index)
+        } else if index < self.answer_rrset_count + self.authority_rrset_count {
+            (SectionType::Authority, index - self.answer_rrset_count)
+        } else {
+            (
+                SectionType::Additional,
+                index - self.answer_rrset_count - self.authority_rrset_count,
+            )
+        };
+
+        (
+            self.msg.section(typ).unwrap().get(pos_in_section).unwrap(),
+            typ,
+        )
     }
 }
 
-impl<'a> Iterator for MessageIter<'a> {
+impl<'a> Iterator for ResponseIter<'a> {
     type Item = (&'a RRset, SectionType);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -45,15 +56,7 @@ impl<'a> Iterator for MessageIter<'a> {
             return None;
         }
 
-        let typ = if self.index < self.answer_rrset_count {
-            SectionType::Answer
-        } else if self.index < self.answer_rrset_count + self.authority_rrset_count {
-            SectionType::Authority
-        } else {
-            SectionType::Additional
-        };
-
-        let item = (self.rrsets[self.index], typ);
+        let item = self.get_rrset_at_index(self.index);
         self.index += 1;
         Some(item)
     }
@@ -66,27 +69,19 @@ impl<'a> Iterator for MessageIter<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for MessageIter<'a> {
+impl<'a> DoubleEndedIterator for ResponseIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.index == self.back_index {
             return None;
         }
 
         self.back_index -= 1;
-        let typ = if self.back_index < self.answer_rrset_count {
-            SectionType::Answer
-        } else if self.index < self.answer_rrset_count + self.authority_rrset_count {
-            SectionType::Authority
-        } else {
-            SectionType::Additional
-        };
-        let item = (self.rrsets[self.back_index], typ);
-        Some(item)
+        Some(self.get_rrset_at_index(self.back_index))
     }
 }
 
-impl<'a> ExactSizeIterator for MessageIter<'a> {}
-impl<'a> FusedIterator for MessageIter<'a> {}
+impl<'a> ExactSizeIterator for ResponseIter<'a> {}
+impl<'a> FusedIterator for ResponseIter<'a> {}
 
 #[cfg(test)]
 mod test {
@@ -112,7 +107,7 @@ mod test {
             14, 192, 154, 0, 1, 0, 1, 0, 1, 81, 128, 0, 4, 42, 62, 2, 24, 192, 154, 0, 1, 0, 1, 0,
             1, 81, 128, 0, 4, 42, 62, 2, 29, 0, 0, 41, 16, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let msg = Message::from_wire(www_knet_cn_response.as_slice()).unwrap();
+        let msg = Response::from_wire(www_knet_cn_response.as_slice()).unwrap();
 
         let answer1 = "www.knet.cn.	300	IN	A	202.173.11.42";
         let ns = vec![
@@ -141,7 +136,7 @@ mod test {
             "cns1.zdnscloud.net.	86400	IN	A	42.62.2.29",
         ];
 
-        assert_eq!(msg.iter().len(), 6);
+        assert_eq!(msg.iter().len(), 7);
         msg.iter()
             .enumerate()
             .for_each(|(i, (rrset, section))| match i {
@@ -169,6 +164,10 @@ mod test {
                     assert_eq!(section, SectionType::Additional);
                     assert_eq!(*rrset, RRset::from_strs(additional4.as_slice()).unwrap());
                 }
+                //edns
+                6 => {
+                    assert_eq!(section, SectionType::Additional);
+                }
                 _ => {
                     assert!(false);
                 }
@@ -179,6 +178,8 @@ mod test {
         assert_eq!(iter.next(), Some((&rrset, SectionType::Answer)));
         let rrset = RRset::from_strs(ns.as_slice()).unwrap();
         assert_eq!(iter.next(), Some((&rrset, SectionType::Authority)));
+        //skip edns
+        iter.next_back();
         let rrset = RRset::from_strs(additional4.as_slice()).unwrap();
         assert_eq!(iter.next_back(), Some((&rrset, SectionType::Additional)));
         let rrset = RRset::from_strs(additional3.as_slice()).unwrap();
@@ -193,7 +194,7 @@ mod test {
 
     #[test]
     fn test_empty_message_iterator() {
-        let msg = Message::with_query(Name::new(".").unwrap(), RRType::A);
+        let msg = Response::with_question(Name::new(".").unwrap(), RRType::A);
         let mut iter = msg.iter();
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next_back(), None);

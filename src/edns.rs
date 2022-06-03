@@ -1,8 +1,11 @@
 use crate::message_render::MessageRender;
+use crate::name::root;
 use crate::rr_class::RRClass;
 use crate::rr_type::RRType;
 use crate::rrset::{RRTtl, RRset};
 use std::fmt;
+
+use anyhow::Result;
 
 const VERSION_SHIFT: u32 = 16;
 const EXTRCODE_SHIFT: u32 = 24;
@@ -11,7 +14,7 @@ const EXTFLAG_DO: u32 = 0x0000_8000;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Edns {
-    pub versoin: u8,
+    pub version: u8,
     pub extened_rcode: u8,
     pub udp_size: u16,
     pub dnssec_aware: bool,
@@ -27,7 +30,7 @@ impl Edns {
 
         let flags = rrset.ttl.0;
         Edns {
-            versoin: ((flags & VERSION_MASK) >> VERSION_SHIFT) as u8,
+            version: ((flags & VERSION_MASK) >> VERSION_SHIFT) as u8,
             udp_size: rrset.class.to_u16(),
             extened_rcode: (flags >> EXTRCODE_SHIFT) as u8,
             dnssec_aware: (flags & EXTFLAG_DO) != 0,
@@ -35,18 +38,33 @@ impl Edns {
         }
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
+    pub fn to_rrset(self) -> RRset {
+        let mut flags = (self.extened_rcode as u32) << EXTRCODE_SHIFT;
+        flags |= ((self.version as u32) << VERSION_SHIFT) & VERSION_MASK;
+        if self.dnssec_aware {
+            flags |= EXTFLAG_DO as u32;
+        }
+        return RRset {
+            name: root(),
+            typ: RRType::OPT,
+            class: RRClass::new(self.udp_size),
+            ttl: RRTtl(flags),
+            rdatas: Vec::new(),
+        };
+    }
+
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
         let mut flags = u32::from(self.extened_rcode) << EXTRCODE_SHIFT;
-        flags |= (u32::from(self.versoin) << VERSION_SHIFT) & VERSION_MASK;
+        flags |= (u32::from(self.version) << VERSION_SHIFT) & VERSION_MASK;
         if self.dnssec_aware {
             flags |= EXTFLAG_DO;
         }
 
-        render.write_u8(0);
-        RRType::OPT.to_wire(render);
-        RRClass::Unknown(self.udp_size).to_wire(render);
-        RRTtl(flags).to_wire(render);
-        render.write_u16(0);
+        render.write_u8(0)?;
+        RRType::OPT.to_wire(render)?;
+        RRClass::Unknown(self.udp_size).to_wire(render)?;
+        RRTtl(flags).to_wire(render)?;
+        render.write_u16(0)
     }
 
     pub fn rr_count(&self) -> usize {
@@ -59,7 +77,7 @@ impl Edns {
 
 impl fmt::Display for Edns {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "; EDNS: version: {}, ", self.versoin)?;
+        write!(f, "; EDNS: version: {}, ", self.version)?;
         if self.dnssec_aware {
             write!(f, "flags: do; ")?;
         }
@@ -79,7 +97,7 @@ mod test {
         let rrset = RRset::from_wire(&mut buf).unwrap();
         let edns = Edns::from_rrset(&rrset);
         let desired_edns = Edns {
-            versoin: 0,
+            version: 0,
             extened_rcode: 0,
             udp_size: 4096,
             dnssec_aware: false,
@@ -87,8 +105,9 @@ mod test {
         };
         assert_eq!(edns, desired_edns);
 
-        let mut render = MessageRender::new();
-        desired_edns.to_wire(&mut render);
-        assert_eq!(raw.as_slice(), render.data());
+        let mut buf = [0; 512];
+        let mut render = MessageRender::new(&mut buf);
+        desired_edns.to_wire(&mut render).unwrap();
+        assert_eq!(raw.as_slice(), &buf[0..(raw.len())]);
     }
 }

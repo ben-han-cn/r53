@@ -14,6 +14,14 @@ pub struct Question {
 }
 
 impl Question {
+    pub fn new(name: Name, typ: RRType) -> Self {
+        Question {
+            name,
+            typ,
+            class: RRClass::IN,
+        }
+    }
+
     pub fn from_wire(buf: &mut InputBuffer) -> Result<Self> {
         let name = Name::from_wire(buf)?;
         let typ = RRType::from_wire(buf)?;
@@ -21,10 +29,10 @@ impl Question {
         Ok(Question { name, typ, class })
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
-        self.name.to_wire(render);
-        self.typ.to_wire(render);
-        self.class.to_wire(render);
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
+        self.name.to_wire(render)?;
+        self.typ.to_wire(render)?;
+        self.class.to_wire(render)
     }
 }
 

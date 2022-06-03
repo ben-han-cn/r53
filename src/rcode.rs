@@ -1,4 +1,7 @@
 use std::fmt::{self, Display};
+use std::str::FromStr;
+
+use anyhow::bail;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Rcode {
@@ -75,6 +78,27 @@ impl Display for Rcode {
     }
 }
 
+impl FromStr for Rcode {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        match s.to_uppercase().as_ref() {
+            "NOERROR" => Ok(Rcode::NoError),
+            "FORMERR" => Ok(Rcode::FormErr),
+            "SERVFAIL" => Ok(Rcode::ServFail),
+            "NXDOMAIN" => Ok(Rcode::NXDomain),
+            "NOTIMP" => Ok(Rcode::NotImp),
+            "REFUSED" => Ok(Rcode::Refused),
+            "YXDOMAIN" => Ok(Rcode::YXDomain),
+            "YXRRSET" => Ok(Rcode::YXRRset),
+            "NXRRSET" => Ok(Rcode::NXRRset),
+            "NOTAUTH" => Ok(Rcode::NotAuth),
+            "NOTZONE" => Ok(Rcode::NotZone),
+            "RESERVED" => Ok(Rcode::Reserved),
+            _ => bail!("unknow rcode {}", s),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -83,5 +107,12 @@ mod test {
     pub fn test_rcode_equal() {
         assert_eq!(Rcode::NoError.to_u8(), 0);
         assert_eq!(Rcode::NoError.to_string(), "NOERROR");
+    }
+
+    #[test]
+    pub fn test_rcode_from_str() {
+        assert_eq!("noerror".parse::<Rcode>().unwrap(), Rcode::NoError);
+        assert_eq!("NOERROR".parse::<Rcode>().unwrap(), Rcode::NoError);
+        assert!("OERROR".parse::<Rcode>().is_err());
     }
 }

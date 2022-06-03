@@ -60,24 +60,25 @@ impl Header {
         is_flag_set(self.flag, flag)
     }
 
-    pub fn set_flag(&mut self, flag: HeaderFlag, set: bool) {
+    pub fn set_flag(&mut self, flag: HeaderFlag, set: bool) -> &mut Self {
         if set {
             set_flag(&mut self.flag, flag);
         } else {
             clear_flag(&mut self.flag, flag);
         }
+        self
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
-        render.write_u16(self.id);
-        render.write_u16(self.header_flag());
-        render.write_u16(self.qd_count);
-        render.write_u16(self.an_count);
-        render.write_u16(self.ns_count);
-        render.write_u16(self.ar_count);
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
+        render.write_u16(self.id)?;
+        render.write_u16(self.header_flag())?;
+        render.write_u16(self.qd_count)?;
+        render.write_u16(self.an_count)?;
+        render.write_u16(self.ns_count)?;
+        render.write_u16(self.ar_count)
     }
 
-    fn header_flag(&self) -> u16 {
+    pub fn header_flag(&self) -> u16 {
         let mut flag: u16 = ((u16::from(self.opcode.to_u8())) << OPCODE_SHIFT) & OPCODE_MASK;
         flag |= (u16::from(self.rcode.to_u8())) & RCODE_MASK;
         flag |= self.flag & HEADERFLAG_MASK;
@@ -88,7 +89,7 @@ impl Header {
 impl Default for Header {
     fn default() -> Header {
         Header {
-            id: 52091,
+            id: rand::random::<u16>(),
             flag: 0,
             opcode: Opcode::Query,
             rcode: Rcode::NoError,
@@ -144,8 +145,9 @@ mod test {
         assert_eq!(header.ar_count, 2);
         assert!(header.is_flag_set(HeaderFlag::QueryRespone));
 
-        let mut render = MessageRender::new();
-        header.to_wire(&mut render);
-        assert_eq!(raw.as_slice(), render.data());
+        let mut buf = [0; 512];
+        let mut render = MessageRender::new(&mut buf);
+        header.to_wire(&mut render).unwrap();
+        assert_eq!(raw.as_slice(), &buf[0..(raw.len())]);
     }
 }

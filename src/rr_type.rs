@@ -1,6 +1,7 @@
 use crate::message_render::MessageRender;
 use crate::util::InputBuffer;
 use anyhow::{self, bail, Result};
+use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
 
@@ -14,9 +15,11 @@ pub enum RRType {
     PTR,
     MX,
     TXT,
+    RP,
     AAAA,
     SRV,
     NAPTR,
+    CERT,
     DNAME,
     OPT,
     DS,
@@ -29,6 +32,8 @@ pub enum RRType {
     IXFR,
     AXFR,
     ANY,
+    URI,
+    CAA,
     Unknown(u16),
 }
 
@@ -41,10 +46,12 @@ impl RRType {
             6 => RRType::SOA,
             12 => RRType::PTR,
             15 => RRType::MX,
+            17 => RRType::RP,
             28 => RRType::AAAA,
             16 => RRType::TXT,
             33 => RRType::SRV,
             35 => RRType::NAPTR,
+            37 => RRType::CERT,
             39 => RRType::DNAME,
             41 => RRType::OPT,
             43 => RRType::DS,
@@ -54,14 +61,17 @@ impl RRType {
             50 => RRType::NSEC3,
             51 => RRType::NSEC3PARAM,
             250 => RRType::TSIG,
+            251 => RRType::IXFR,
             252 => RRType::AXFR,
             255 => RRType::ANY,
+            256 => RRType::URI,
+            257 => RRType::CAA,
             _ => RRType::Unknown(value),
         }
     }
 
-    pub fn to_u16(self) -> u16 {
-        match self {
+    pub fn as_u16(&self) -> u16 {
+        match *self {
             RRType::A => 1,
             RRType::NS => 2,
             RRType::CNAME => 5,
@@ -69,9 +79,11 @@ impl RRType {
             RRType::PTR => 12,
             RRType::MX => 15,
             RRType::TXT => 16,
+            RRType::RP => 17,
             RRType::AAAA => 28,
             RRType::SRV => 33,
             RRType::NAPTR => 35,
+            RRType::CERT => 37,
             RRType::DNAME => 39,
             RRType::OPT => 41,
             RRType::DS => 43,
@@ -84,6 +96,8 @@ impl RRType {
             RRType::IXFR => 251,
             RRType::AXFR => 252,
             RRType::ANY => 255,
+            RRType::URI => 256,
+            RRType::CAA => 257,
             RRType::Unknown(c) => c,
         }
     }
@@ -97,9 +111,11 @@ impl RRType {
             RRType::PTR => "PTR",
             RRType::MX => "MX",
             RRType::TXT => "TXT",
+            RRType::RP => "RP",
             RRType::AAAA => "AAAA",
             RRType::SRV => "SRV",
             RRType::NAPTR => "NAPTR",
+            RRType::CERT => "URI",
             RRType::DNAME => "DNAME",
             RRType::OPT => "OPT",
             RRType::DS => "DS",
@@ -112,6 +128,8 @@ impl RRType {
             RRType::IXFR => "IXFR",
             RRType::AXFR => "AXFR",
             RRType::ANY => "ANY",
+            RRType::URI => "URI",
+            RRType::CAA => "CAA",
             RRType::Unknown(_) => "Unknown",
         }
     }
@@ -120,8 +138,8 @@ impl RRType {
         buf.read_u16().map(RRType::new)
     }
 
-    pub fn to_wire(self, render: &mut MessageRender) {
-        render.write_u16(self.to_u16());
+    pub fn to_wire(self, render: &mut MessageRender) -> Result<()> {
+        render.write_u16(self.as_u16())
     }
 }
 
@@ -142,9 +160,11 @@ impl FromStr for RRType {
             "PTR" => Ok(RRType::PTR),
             "MX" => Ok(RRType::MX),
             "TXT" => Ok(RRType::TXT),
+            "RP" => Ok(RRType::RP),
             "AAAA" => Ok(RRType::AAAA),
             "SRV" => Ok(RRType::SRV),
             "NAPTR" => Ok(RRType::NAPTR),
+            "CERT" => Ok(RRType::CERT),
             "DNAME" => Ok(RRType::DNAME),
             "OPT" => Ok(RRType::OPT),
             "DS" => Ok(RRType::DS),
@@ -157,8 +177,22 @@ impl FromStr for RRType {
             "IXFR" => Ok(RRType::IXFR),
             "AXFR" => Ok(RRType::AXFR),
             "ANY" => Ok(RRType::ANY),
+            "URI" => Ok(RRType::URI),
+            "CAA" => Ok(RRType::CAA),
             _ => bail!("rr type {} doesn't support", s),
         }
+    }
+}
+
+impl PartialOrd for RRType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.as_u16().cmp(&other.as_u16()))
+    }
+}
+
+impl Ord for RRType {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_u16().cmp(&other.as_u16())
     }
 }
 
@@ -168,7 +202,7 @@ mod test {
 
     #[test]
     pub fn test_rrtype_equal() {
-        assert_eq!(RRType::A.to_u16(), 1);
+        assert_eq!(RRType::A.as_u16(), 1);
         assert_eq!(RRType::A.to_str(), "A");
     }
 }

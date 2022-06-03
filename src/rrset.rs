@@ -16,8 +16,8 @@ impl RRTtl {
         buf.read_u32().map(RRTtl)
     }
 
-    pub fn to_wire(self, render: &mut MessageRender) {
-        render.write_u32(self.0);
+    pub fn to_wire(self, render: &mut MessageRender) -> Result<()> {
+        render.write_u32(self.0)
     }
 }
 
@@ -37,7 +37,7 @@ impl fmt::Display for RRTtl {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct RRset {
     pub name: Name,
     pub typ: RRType,
@@ -71,10 +71,10 @@ impl RRset {
         })
     }
 
-    pub fn from_strs(ss: &[&str]) -> Result<Self> {
+    pub fn from_strs<T: AsRef<str>>(ss: &[T]) -> Result<Self> {
         assert!(!ss.is_empty());
 
-        let last = RRset::from_str(ss[0])?;
+        let last = RRset::from_str(ss[0].as_ref())?;
         if ss.len() == 1 {
             return Ok(last);
         }
@@ -84,7 +84,7 @@ impl RRset {
         }
 
         ss[1..].iter().try_fold(last, |mut rrset, s| {
-            let mut current = RRset::from_str(s)?;
+            let mut current = RRset::from_str(s.as_ref())?;
             if rrset.typ != current.typ {
                 bail!("rr in one rrset should has same type");
             }
@@ -93,26 +93,27 @@ impl RRset {
         })
     }
 
-    pub fn to_wire(&self, render: &mut MessageRender) {
+    pub fn to_wire(&self, render: &mut MessageRender) -> Result<()> {
         if self.rdatas.is_empty() {
-            self.name.to_wire(render);
-            self.typ.to_wire(render);
-            self.class.to_wire(render);
-            self.ttl.to_wire(render);
-            render.write_u16(0)
+            self.name.to_wire(render)?;
+            self.typ.to_wire(render)?;
+            self.class.to_wire(render)?;
+            self.ttl.to_wire(render)?;
+            render.write_u16(0)?;
         } else {
-            self.rdatas.iter().for_each(|rdata| {
-                self.name.to_wire(render);
-                self.typ.to_wire(render);
-                self.class.to_wire(render);
-                self.ttl.to_wire(render);
+            for rdata in &self.rdatas {
+                self.name.to_wire(render)?;
+                self.typ.to_wire(render)?;
+                self.class.to_wire(render)?;
+                self.ttl.to_wire(render)?;
                 let pos = render.len();
-                render.skip(2);
-                rdata.to_wire(render);
+                render.skip(2)?;
+                rdata.to_wire(render)?;
                 let rdlen = render.len() - pos - 2;
-                render.write_u16_at(rdlen as u16, pos);
-            })
+                render.write_u16_at(pos, rdlen as u16)?;
+            }
         }
+        Ok(())
     }
 
     fn header(&self) -> String {
@@ -133,6 +134,40 @@ impl RRset {
         self.typ == other.typ && self.name.eq(&other.name)
     }
 }
+
+impl PartialEq for RRset {
+    //in many cases, ttl should be ingnored for rrset equality
+    fn eq(&self, other: &RRset) -> bool {
+        if !self.is_same_rrset(other) {
+            return false;
+        }
+
+        let rdata_count = self.rdatas.len();
+        if rdata_count != other.rdatas.len() {
+            return false;
+        }
+
+        //for rdata count smaller than 4
+        //compare at most 9 times, otherwise sort then compare
+        if rdata_count < 4 {
+            self.rdatas.iter().all(|rdata| {
+                other
+                    .rdatas
+                    .iter()
+                    .position(|other_rdata| rdata == other_rdata)
+                    .is_some()
+            })
+        } else {
+            let mut rdatas1 = self.rdatas.clone();
+            rdatas1.sort_unstable();
+            let mut rdatas2 = other.rdatas.clone();
+            rdatas2.sort_unstable();
+            rdatas1 == rdatas2
+        }
+    }
+}
+
+impl Eq for RRset {}
 
 impl FromStr for RRset {
     type Err = anyhow::Error;
@@ -174,7 +209,7 @@ impl FromStr for RRset {
             bail!("parse type failed");
         };
 
-        let rdata = RData::from_buffer(typ, &mut labels)?;
+        let rdata = RData::from_string_buffer(typ, &mut labels)?;
         Ok(RRset {
             name,
             typ,
@@ -189,7 +224,73 @@ impl fmt::Display for RRset {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.rdatas
             .iter()
-            .map(|rdata| write!(f, "{}\t{}\n", self.header(), rdata))
+            .map(|rdata| writeln!(f, "{}\t{}", self.header(), rdata))
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_rrset_eq() {
+        let rrset1_str = vec![
+            "example.com.       3600    IN      A       5.5.5.5",
+            "example.com.       3600    IN      A       1.1.1.1",
+            "example.com.       3600    IN      A       2.2.2.2",
+            "example.com.       3600    IN      A       3.3.3.3",
+            "example.com.       3600    IN      A       4.4.4.4",
+        ];
+        let rrset2_str = vec![
+            "example.com.       360    IN      A       2.2.2.2",
+            "example.com.       360    IN      A       3.3.3.3",
+            "example.com.       360    IN      A       4.4.4.4",
+            "example.com.       360    IN      A       1.1.1.1",
+            "example.com.       360    IN      A       5.5.5.5",
+        ];
+        assert_eq!(
+            RRset::from_strs(rrset1_str.as_slice()).unwrap(),
+            RRset::from_strs(rrset2_str.as_slice()).unwrap()
+        );
+
+        let rrset1_str = vec![
+            "example.com.       3600    IN      A       1.1.1.1",
+            "example.com.       3600    IN      A       2.2.2.2",
+        ];
+        let rrset2_str = vec![
+            "example.com.       360    IN      A       2.2.2.2",
+            "example.com.       360    IN      A       1.1.1.1",
+        ];
+        assert_eq!(
+            RRset::from_strs(rrset1_str.as_slice()).unwrap(),
+            RRset::from_strs(rrset2_str.as_slice()).unwrap()
+        );
+
+        let rrset1_str = vec![
+            "example.com.       3600    IN      A       1.1.1.1",
+            "example.com.       3600    IN      A       3.3.3.3",
+        ];
+        let rrset2_str = vec![
+            "example.com.       3600    IN      A       2.2.2.2",
+            "example.com.       3600    IN      A       1.1.1.1",
+        ];
+        assert_ne!(
+            RRset::from_strs(rrset1_str.as_slice()).unwrap(),
+            RRset::from_strs(rrset2_str.as_slice()).unwrap()
+        );
+
+        let rrset1_str = vec![
+            "example.com.       3600    IN      A       1.1.1.1",
+            "example.com.       3600    IN      A       2.2.2.2",
+            "example.com.       3600    IN      A       3.3.3.3",
+        ];
+        let rrset2_str = vec![
+            "example.com.       3600    IN      A       2.2.2.2",
+            "example.com.       3600    IN      A       1.1.1.1",
+        ];
+        assert_ne!(
+            RRset::from_strs(rrset1_str.as_slice()).unwrap(),
+            RRset::from_strs(rrset2_str.as_slice()).unwrap()
+        );
     }
 }

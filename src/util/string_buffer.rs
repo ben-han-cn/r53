@@ -105,12 +105,18 @@ impl<'a> StringBuffer<'a> {
         }
     }
 
-    pub fn left_str(self) -> Option<&'a str> {
+    pub fn read_left(&mut self) -> Option<&'a str> {
         if self.is_eos() {
             None
         } else {
-            Some(from_utf8(&self.raw[self.pos..]).unwrap())
+            let ret = Some(from_utf8(&self.raw[self.pos..]).unwrap());
+            self.pos = self.raw.len();
+            ret
         }
+    }
+
+    pub fn left_str(mut self) -> Option<&'a str> {
+        self.read_left()
     }
 
     fn is_eos(&self) -> bool {

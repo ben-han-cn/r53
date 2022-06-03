@@ -1,25 +1,26 @@
 use crate::message_render::MessageRender;
 use crate::name::Name;
 use crate::rdatafield::*;
+use crate::rr_type::RRType;
 use crate::util::{InputBuffer, StringBuffer};
 use anyhow::{ensure, Result};
 use rdata_derive::Rdata;
 use std::fmt;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
 pub struct A {
     #[field(codec = "ipv4", display = "ipv4")]
     pub host: Ipv4Addr,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
 pub struct AAAA {
     #[field(codec = "ipv6", display = "ipv6")]
     pub host: Ipv6Addr,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
 pub struct SOA {
     #[field(codec = "name", display = "name")]
     pub mname: Name,
@@ -37,7 +38,7 @@ pub struct SOA {
     pub minimum: u32,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
 pub struct SRV {
     #[field(codec = "u16", display = "u16")]
     pub priority: u16,
@@ -49,30 +50,7 @@ pub struct SRV {
     pub target: Name,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
-pub struct TXT {
-    #[field(codec = "text", display = "text")]
-    pub data: Vec<Vec<u8>>,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
-pub struct NS {
-    #[field(codec = "name", display = "name")]
-    pub name: Name,
-}
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
-pub struct PTR {
-    #[field(codec = "name", display = "name")]
-    pub name: Name,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
-pub struct CName {
-    #[field(codec = "name", display = "name")]
-    pub name: Name,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
 pub struct MX {
     #[field(codec = "u16", display = "u16")]
     pub preference: u16,
@@ -80,7 +58,39 @@ pub struct MX {
     pub name: Name,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct TXT {
+    #[field(codec = "text", display = "text")]
+    pub data: Vec<Vec<u8>>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct RP {
+    #[field(codec = "name", display = "name")]
+    pub mbox_dname: Name,
+    #[field(codec = "name", display = "name")]
+    pub txt_dname: Name,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct NS {
+    #[field(codec = "name", display = "name")]
+    pub name: Name,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct PTR {
+    #[field(codec = "name", display = "name")]
+    pub name: Name,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct CName {
+    #[field(codec = "name", display = "name")]
+    pub name: Name,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
 pub struct NAPTR {
     #[field(codec = "u16", display = "u16")]
     pub order: u16,
@@ -96,10 +106,130 @@ pub struct NAPTR {
     pub replacement: Name,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Rdata)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
 pub struct OPT {
     #[field(codec = "binary", display = "binary")]
     pub data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct DName {
+    #[field(codec = "name", display = "name")]
+    pub target: Name,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct DS {
+    #[field(codec = "u16", display = "u16")]
+    pub key_tag: u16,
+    #[field(codec = "u8", display = "u8")]
+    pub algorithm: u8,
+    #[field(codec = "u8", display = "u8")]
+    pub digest_type: u8,
+    #[field(codec = "binary", display = "binary")]
+    pub digest: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct RRSig {
+    #[field(codec = "rrtype", display = "rrtype")]
+    pub covered: RRType,
+    #[field(codec = "u8", display = "u8")]
+    pub algorithm: u8,
+    #[field(codec = "u8", display = "u8")]
+    pub labels: u8,
+    #[field(codec = "u32", display = "u32")]
+    pub original_ttl: u32,
+    #[field(codec = "u32", display = "timestamp")]
+    pub sig_expire: u32,
+    #[field(codec = "u32", display = "timestamp")]
+    pub incpetion: u32,
+    #[field(codec = "u16", display = "u16")]
+    pub tag: u16,
+    #[field(codec = "name", display = "name")]
+    pub signer: Name,
+    #[field(codec = "binary", display = "base64")]
+    pub signature: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct NSEC {
+    #[field(codec = "name", display = "name")]
+    pub next_domain_name: Name,
+    #[field(codec = "binary", display = "binary")]
+    pub type_bit_map: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct DNSKey {
+    #[field(codec = "u16", display = "u16")]
+    pub flags: u16,
+    #[field(codec = "u8", display = "u8")]
+    pub protocol: u8,
+    #[field(codec = "u8", display = "u8")]
+    pub algorithm: u8,
+    #[field(codec = "binary", display = "base64")]
+    pub public_key: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct NSEC3 {
+    #[field(codec = "u8", display = "u8")]
+    pub algorithm: u8,
+    #[field(codec = "u8", display = "u8")]
+    pub flags: u8,
+    #[field(codec = "u16", display = "u16")]
+    pub iterations: u16,
+    #[field(codec = "byte_binary", display = "binary")]
+    pub salt: Vec<u8>,
+    #[field(codec = "byte_binary", display = "binary")]
+    pub next_hash: Vec<u8>,
+    #[field(codec = "binary", display = "binary")]
+    pub types: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct NSEC3Param {
+    #[field(codec = "u8", display = "u8")]
+    pub hash_algorithm: u8,
+    #[field(codec = "u8", display = "u8")]
+    pub flags: u8,
+    #[field(codec = "u16", display = "u16")]
+    pub iterations: u16,
+    #[field(codec = "byte_binary", display = "binary")]
+    pub salt: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct CAA {
+    #[field(codec = "u8", display = "u8")]
+    pub flag: u8,
+    #[field(codec = "byte_binary", display = "string")]
+    pub tag: Vec<u8>,
+    #[field(codec = "binary", display = "string")]
+    pub value: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct CERT {
+    #[field(codec = "u16", display = "u16")]
+    pub r#type: u16,
+    #[field(codec = "u16", display = "u16")]
+    pub key_tag: u16,
+    #[field(codec = "u8", display = "u8")]
+    pub algorithm: u8,
+    #[field(codec = "binary", display = "base64")]
+    pub public_key: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Rdata)]
+pub struct URI {
+    #[field(codec = "u16", display = "u16")]
+    pub priority: u16,
+    #[field(codec = "u16", display = "u16")]
+    pub weight: u16,
+    #[field(codec = "binary", display = "string")]
+    pub target: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -180,6 +310,21 @@ mod test {
         //txt4
         let txt4 = TXT::from_str(&mut StringBuffer::new(r#""foo\"xx\" bar""#)).unwrap();
         assert_eq!(str::from_utf8(&txt4.data[0]).unwrap(), r#"foo"xx" bar"#);
+
+        //ds
+        let ds = DS::from_str(&mut StringBuffer::new(
+            "30909 8 2 E2D3C916F6DEEAC73294E8268FB5885044A833FC5459588F4A9184CF C41A5766",
+        ))
+        .unwrap();
+        assert_eq!(ds.key_tag, 30909);
+        assert_eq!(ds.algorithm, 8);
+        assert_eq!(ds.digest_type, 2);
+
+        //rrsig
+        let rrsig = RRSig::from_str(&mut StringBuffer::new(
+            "DS 8 1 86400 20210702050000 20210619040000 14631 . CxMDaySHQUAVlRNtZc2ynPSV70KoOvDLE48Q8aCIDryM5wcV9v/hzhvG +b3FxqO5ajZqS8E9+O1S2D2hLcoRykvCtGvRZVLiQHbIoXb84umloJax o/4h62siUR9Nm/Ihe9xH9k4X3StN3lk900LKPDC590zyG97Pglixph4V JbFNb18piuhM6nwqAuc7gAKoguNhqM4huj1CNv8vzzRrIhkd9RgN7lm+ 33A2K4nIEw4hclUFpEKrCSHyZ82xnSXrHExixsRrDLvk7iSN9dA0oaD9 Xdl+F23JmFej1A+wjQSFZ+UAts+ORNox8sgpVCR4yfgHXW4qvmEJwBlC 9imCcg==",
+        )).unwrap();
+        assert_eq!(rrsig.covered, RRType::DS);
     }
 
     #[test]

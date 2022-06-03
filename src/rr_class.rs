@@ -53,8 +53,8 @@ impl RRClass {
         buf.read_u16().map(RRClass::new)
     }
 
-    pub fn to_wire(self, render: &mut MessageRender) {
-        render.write_u16(self.to_u16());
+    pub fn to_wire(self, render: &mut MessageRender) -> Result<()> {
+        render.write_u16(self.to_u16())
     }
 }
 

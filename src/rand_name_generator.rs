@@ -1,5 +1,5 @@
 use crate::name::{Name, MAX_LABEL_COUNT, MAX_LABEL_LEN, MAX_WIRE_LEN};
-use rand::prelude::*;
+use rand::{self, rngs::ThreadRng, thread_rng, Rng};
 use std::cmp::Ord;
 
 const VALID_DOMAIN_CHAR: &[u8] = b"abcdefghijklmnopqrstuvwxyz\
@@ -18,7 +18,7 @@ impl RandNameGenerator {
     fn gen_label(&mut self, len: u8) -> String {
         let mut label = String::with_capacity(len as usize);
         for _i in 0..len {
-            let index = self.rng.gen_range(0, VALID_DOMAIN_CHAR.len());
+            let index = self.rng.gen_range(0..VALID_DOMAIN_CHAR.len());
             label.push(VALID_DOMAIN_CHAR[index] as char);
         }
         label
@@ -26,8 +26,8 @@ impl RandNameGenerator {
 
     //NON-FQDN  www.baidu.com strlen = wirelen - 2
     pub fn gen_name_string(&mut self) -> String {
-        let len = self.rng.gen_range(1, MAX_WIRE_LEN - 1) as u8;
-        let label_count = self.rng.gen_range(1, MAX_LABEL_COUNT + 1);
+        let len = self.rng.gen_range(1..MAX_WIRE_LEN - 1) as u8;
+        let label_count = self.rng.gen_range(1..MAX_LABEL_COUNT + 1);
         let mut name = String::with_capacity(len as usize);
         let mut generated_len = 0;
         for i in 0..label_count {
@@ -38,7 +38,7 @@ impl RandNameGenerator {
             } else if is_last_label {
                 max_label_len
             } else {
-                self.rng.gen_range(1, max_label_len)
+                self.rng.gen_range(1..max_label_len)
             };
 
             name.push_str(self.gen_label(label_len).as_ref());
